@@ -51,8 +51,14 @@
 
         .no-print-border table, .no-print-border td { border: none !important; }
 
-        table { width: 100%; border-collapse: collapse; }
-        td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        td, th {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
 
         .stack-table { margin-top: 0; }
 
@@ -60,11 +66,60 @@
         .no-border-table tr:last-child td { border-bottom: none; }
         .no-border-table td:last-child { border-right: none; }
 
-        .item-table { border-top: none; }
+        .item-table { border-top: none; width: 100%; }
         .item-table th { border-bottom: 1px solid #000; text-align: left; font-weight: normal; }
         .item-table td { border-bottom: none; border-top: none; border-right: 1px solid #000; }
         .item-table td:last-child { border-right: none; }
         .item-table .border-bottom { border-bottom: none !important; }
+        .item-table .amount-col-separator { border-top: 1px solid #000 !important; }
+        .item-table .col-sl { width: 5%; white-space: nowrap; }
+
+        /* Amount words — single cell, E. & O.E right-aligned, no vertical divider */
+        .amount-words-table td { border-right: none !important; position: relative; }
+        .amount-words-table .eoe-inline {
+            position: absolute;
+            right: 4px;
+            bottom: 2px;
+        }
+
+        /* Tax table — auto column sizing; HSN left-aligned; amounts right-aligned */
+        .tax-table { width: 100%; }
+        .tax-table .col-hsn { width: auto; }
+        .tax-table th.col-hsn,
+        .tax-table td.col-hsn { text-align: left; }
+        .tax-table tfoot td.col-hsn { text-align: right; }
+        .tax-table .col-num { text-align: right; }
+        .tax-table .col-rate { text-align: left; }
+
+        /* Footer — no line after tax words; declaration pushed down; signatory box */
+        .footer-table td { vertical-align: top; }
+        .footer-table .tax-words-cell { border-bottom: none !important; padding-bottom: 4px; }
+        .footer-table .footer-body-left {
+            width: 50%;
+            padding-top: 28pt;
+            border-top: none !important;
+            border-right: none !important;
+        }
+        .footer-table .footer-body-right {
+            width: 50%;
+            padding: 0;
+            border-top: none !important;
+            border-left: none !important;
+        }
+        .footer-table .declaration-label {
+            text-decoration: underline;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        .footer-table .bank-block { padding: 2px 4px; }
+        .footer-table .signatory-box {
+            border: 1px solid #000;
+            min-height: 42.5pt;
+            margin: 8px 0 0 0;
+            padding: 6px 4px 4px;
+            box-sizing: border-box;
+        }
+        .footer-table .signatory-label { margin-top: 24px; }
 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
@@ -412,13 +467,13 @@
             <table class="item-table" style="border: 1px solid #000; border-top: none; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width: 16%; border-right: 1px solid #000;"><span class="f-10">Sl</span><br><span class="f-78">No.</span></th>
-                        <th style="width: 34.6%; border-right: 1px solid #000;"><span class="f-9">Description of Goods</span></th>
-                        <th style="width: 10.7%; border-right: 1px solid #000;"><span class="f-9">HSN/SAC</span></th>
-                        <th style="width: 11.6%; border-right: 1px solid #000;" class="text-right"><span class="f-9">Quantity</span></th>
-                        <th style="width: 7.9%; border-right: 1px solid #000;" class="text-right"><span class="f-9">Rate</span></th>
-                        <th style="width: 7.6%; border-right: 1px solid #000;"><span class="f-9">per</span></th>
-                        <th style="width: 10%;" class="text-right"><span class="f-9">Amount</span></th>
+                        <th class="col-sl" style="border-right: 1px solid #000;"><span class="f-10">Sl</span><br><span class="f-78">No.</span></th>
+                        <th style="border-right: 1px solid #000;"><span class="f-9">Description of Goods</span></th>
+                        <th style="border-right: 1px solid #000;"><span class="f-9">HSN/SAC</span></th>
+                        <th style="border-right: 1px solid #000;" class="text-right"><span class="f-9">Quantity</span></th>
+                        <th style="border-right: 1px solid #000;" class="text-right"><span class="f-9">Rate</span></th>
+                        <th style="border-right: 1px solid #000;"><span class="f-9">per</span></th>
+                        <th class="text-right"><span class="f-9">Amount</span></th>
                     </tr>
                 </thead>
                 <tbody class="p_items_body" style="min-height: 114.7pt;"></tbody>
@@ -427,7 +482,7 @@
                         <td></td>
                         <td class="text-right p_gst_labels" style="padding-top: 16px;"></td>
                         <td></td><td></td><td></td><td></td>
-                        <td class="text-right p_gst_amounts" style="padding-top: 16px;"></td>
+                        <td class="text-right p_gst_amounts amount-col-separator" style="padding-top: 16px;"></td>
                     </tr>
                     <tr>
                         <td class="border-bottom"></td>
@@ -441,30 +496,37 @@
                 </tbody>
             </table>
 
-            <table class="stack-table" style="border: 1px solid #000; border-top: none;">
+            <table class="stack-table amount-words-table" style="border: 1px solid #000; border-top: none;">
                 <tr>
-                    <td style="width:85%;"><span class="f-85">Amount Chargeable (in words)</span><br><span class="f-10b p_words"></span></td>
-                    <td style="width:15%; text-align:right; vertical-align:bottom;"><span class="f-9i">E. & O.E</span></td>
+                    <td>
+                        <span class="f-85">Amount Chargeable (in words)</span><br>
+                        <span class="f-10b p_words"></span>
+                        <span class="f-9i eoe-inline">E. & O.E</span>
+                    </td>
                 </tr>
             </table>
 
             <div class="p_tax_table_container"></div>
 
-            <table class="stack-table" style="border: 1px solid #000; border-top: none;">
+            <table class="stack-table footer-table" style="border: 1px solid #000; border-top: none;">
                 <tr>
-                    <td colspan="2"><span class="f-85">Tax Amount (in words) :</span> <span class="f-10b p_tax_words"></span></td>
+                    <td colspan="2" class="tax-words-cell"><span class="f-85">Tax Amount (in words) :</span> <span class="f-10b p_tax_words"></span></td>
                 </tr>
                 <tr>
-                    <td style="width: 50%; border-bottom: none; border-right: none;">
+                    <td class="footer-body-left">
                         <div class="p_s_pan_line"></div>
-                        <span class="f-85">Declaration</span><br>
+                        <span class="f-85 declaration-label">Declaration</span><br>
                         <span class="f-9">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</span>
                     </td>
-                    <td style="width: 50%; border-bottom: none; border-left: none;">
-                        <span class="f-9">Company's Bank Details</span>
-                        <div style="margin: 4px 0;" class="p_s_bank"></div><br>
-                        <div class="text-right f-85b" style="margin-top: 8px;">for <span class="p_sign_name"></span></div>
-                        <div class="text-right f-85" style="margin-top: 36px;">Authorised Signatory</div>
+                    <td class="footer-body-right">
+                        <div class="bank-block">
+                            <span class="f-9">Company's Bank Details</span>
+                            <div class="p_s_bank"></div>
+                        </div>
+                        <div class="signatory-box">
+                            <div class="text-right f-85b">for <span class="p_sign_name"></span></div>
+                            <div class="text-right f-85 signatory-label">Authorised Signatory</div>
+                        </div>
                     </td>
                 </tr>
             </table>
@@ -555,7 +617,7 @@
 
         // Company's PAN line (only shown if filled)
         let sPan = val('s_pan');
-        setClassHTML('p_s_pan_line', sPan ? `<span class="f-9">Company's PAN : <span class="f-9b">${sPan}</span></span><br><br>` : '');
+        setClassHTML('p_s_pan_line', sPan ? `<span class="f-9">Company's PAN : <span class="f-9b">${sPan}</span></span><br>` : '');
 
         // Bank details — labels 9pt regular, branch/IFSC value 8.4pt bold (matches PDF)
         let bankName = val('s_bank_name'), bankAcc = val('s_bank_acc'),
@@ -621,7 +683,7 @@
 
             itemsHTML += `
                 <tr>
-                    <td class="text-center f-10">${count}</td>
+                    <td class="col-sl text-center f-10">${count}</td>
                     <td><span class="f-10b">${names[i].value}</span><br><span class="item-spec">${specs[i].value}</span></td>
                     <td class="f-9">${hsn}</td>
                     <td class="text-right f-79b">${q.toLocaleString('en-IN', {minimumFractionDigits: 3})} ${units[i].value}</td>
@@ -682,49 +744,49 @@
         groupList.forEach(group => {
             let taxable = group.taxable;
             let rowTax = 0;
-            let cells = `<td class="f-9 text-center">${group.hsn}</td><td class="f-9 text-right">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            let cells = `<td class="f-9 col-hsn">${group.hsn}</td><td class="f-9 col-num">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
 
             if (group.type === 'IGST') {
                 let igstAmt = taxable * (group.rate / 100);
                 totIgst += igstAmt;
                 rowTax = igstAmt;
-                if (showGst) cells += `<td class="f-9 text-center"></td><td class="f-9 text-right"></td><td class="f-9 text-center"></td><td class="f-9 text-right"></td>`;
-                if (showIgst) cells += `<td class="f-9 text-center">${group.rate}%</td><td class="f-9 text-right">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showGst) cells += `<td class="f-9 col-rate"></td><td class="f-9 col-num"></td><td class="f-9 col-rate"></td><td class="f-9 col-num"></td>`;
+                if (showIgst) cells += `<td class="f-9 col-rate">${group.rate}%</td><td class="f-9 col-num">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
             } else {
                 let halfRate = group.rate / 2;
                 let c = taxable * (halfRate / 100);
                 let s = taxable * (halfRate / 100);
                 totCgst += c; totSgst += s;
                 rowTax = c + s;
-                if (showGst) cells += `<td class="f-9 text-center">${halfRate}%</td><td class="f-9 text-right">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="f-9 text-center">${halfRate}%</td><td class="f-9 text-right">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-                if (showIgst) cells += `<td class="f-9 text-center"></td><td class="f-9 text-right"></td>`;
+                if (showGst) cells += `<td class="f-9 col-rate">${halfRate}%</td><td class="f-9 col-num">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="f-9 col-rate">${halfRate}%</td><td class="f-9 col-num">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showIgst) cells += `<td class="f-9 col-rate"></td><td class="f-9 col-num"></td>`;
             }
             totTaxable += taxable;
 
-            cells += `<td class="f-9 text-right">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            cells += `<td class="f-9 col-num">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
             rowsHTML += `<tr>${cells}</tr>`;
         });
 
         let totalTaxAll = totCgst + totSgst + totIgst;
 
-        // Build the header row(s) — 9pt regular labels, matching PDF tax table
-        let headRow1 = `<th rowspan="2" class="f-9 text-center">HSN/SAC</th><th rowspan="2" class="f-9 text-right">Taxable Value</th>`;
+        // Build the header row(s) — auto-width columns; HSN left, amounts right
+        let headRow1 = `<th rowspan="2" class="f-9 col-hsn">HSN/SAC</th><th rowspan="2" class="f-9 col-num">Taxable Value</th>`;
         if (showGst) headRow1 += `<th colspan="2" class="f-9 text-center">CGST</th><th colspan="2" class="f-9 text-center">SGST/UTGST</th>`;
         if (showIgst) headRow1 += `<th colspan="2" class="f-9 text-center">IGST</th>`;
-        headRow1 += `<th rowspan="2" class="f-9 text-right">Total Tax Amount</th>`;
+        headRow1 += `<th rowspan="2" class="f-9 col-num">Total Tax Amount</th>`;
 
         let headRow2 = '';
-        if (showGst) headRow2 += `<th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th><th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th>`;
-        if (showIgst) headRow2 += `<th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th>`;
+        if (showGst) headRow2 += `<th class="f-9 col-rate">Rate</th><th class="f-9 col-num">Amount</th><th class="f-9 col-rate">Rate</th><th class="f-9 col-num">Amount</th>`;
+        if (showIgst) headRow2 += `<th class="f-9 col-rate">Rate</th><th class="f-9 col-num">Amount</th>`;
 
-        // Build the footer totals row — Total label and values bold 9pt
-        let footerCells = `<td class="f-9b text-right">Total</td><td class="f-9b text-right">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        if (showGst) footerCells += `<td></td><td class="f-9b text-right">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td></td><td class="f-9b text-right">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        if (showIgst) footerCells += `<td></td><td class="f-9b text-right">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        footerCells += `<td class="f-9b text-right">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        // Footer totals — only "Total" label is right-aligned in HSN column
+        let footerCells = `<td class="f-9b col-hsn">Total</td><td class="f-9b col-num">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showGst) footerCells += `<td class="col-rate"></td><td class="f-9b col-num">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="col-rate"></td><td class="f-9b col-num">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showIgst) footerCells += `<td class="col-rate"></td><td class="f-9b col-num">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        footerCells += `<td class="f-9b col-num">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
 
         const taxTableHTML = `
-            <table class="stack-table" style="border: 1px solid #000; border-top: none; width:100%;">
+            <table class="stack-table tax-table" style="border: 1px solid #000; border-top: none; width:100%;">
                 <thead>
                     <tr>${headRow1}</tr>
                     <tr>${headRow2}</tr>
