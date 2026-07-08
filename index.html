@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+    /* --- UI STYLES (Hidden during print) --- */
+    body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+    .app-container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    h1, h2, h3 { color: #333; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    .grid-4 { display: grid; grid-template-columns: 1.3fr 1fr 0.7fr 0.7fr 0.9fr; gap: 10px; }
+    .grid-5 { display: grid; grid-template-columns: 1.2fr 0.9fr 0.6fr 0.6fr 0.7fr 0.8fr; gap: 10px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: Arial; }
+    textarea { resize: vertical; }
+    .section-title { border-bottom: 2px solid #007bff; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; color: #007bff; }
+    .item-row { background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px dashed #ccc; margin-bottom: 10px; }
+    .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-success { background-color: #28a745; color: white; width: 100%; font-size: 18px; padding: 15px; margin-top: 20px; }
+    .btn-danger { background-color: #dc3545; color: white; padding: 5px 10px; margin-top: 23px; }
+    .copy-check { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+    .copy-check input { width: auto; }
+    .copy-check label { margin: 0; }
+
+    #print-root { display: none; }
+
+    /* --- PROFESSIONAL PRINT TEMPLATE STYLES --- */
+    @media print {
+        body { background: white; padding: 0; margin: 0; }
+        .app-container { display: none !important; }
+        #print-root { display: block !important; }
+        .invoice-page {
+            width: 210mm;
+            margin: auto;
+            padding: 7mm 8mm 8mm 8mm;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+            page-break-after: always;
+        }
+        .invoice-page:last-child { page-break-after: auto; }
+
+        .no-print-border table, .no-print-border td { border: none !important; }
+
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
+
+        .stack-table { margin-top: 0; }
+
+        .no-border-table td { border: none; border-right: 1px solid #000; border-bottom: 1px solid #000; }
+        .no-border-table tr:last-child td { border-bottom: none; }
+        .no-border-table td:last-child { border-right: none; }
+
+        .item-table { border-top: none; }
+        .item-table th { border-bottom: 1px solid #000; text-align: left; }
+        .item-table td { border-bottom: none; border-right: 1px solid #000; }
+        .item-table td:last-child { border-right: none; }
+        .item-table .border-bottom { border-bottom: 1px solid #000 !important; }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+        .item-spec { font-style: italic; padding-left: 4px; }
+
+        .party-block { margin-bottom: 4px; }
+        .party-block-divider { border-top: 1px solid #000; margin-top: 4px; padding-top: 4px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="app-container" id="form-section">
+    <h1 style="text-align: center;">Master Invoice Form</h1>
+    <p style="text-align: center; color: #666;">Fill in the details below to generate a printable tax invoice.</p>
+
+    <h3 class="section-title">Document Settings</h3>
+    <div class="grid-3">
+        <div class="form-group"><label>Invoice No.</label><input type="text" id="f_invNo" value=""></div>
+        <div class="form-group"><label>Date</label><input type="text" id="f_date" value=""></div>
+        <div class="form-group"><label>GST Location (for CGST/SGST label)</label><input type="text" id="t_gstloc" value=""></div>
+    </div>
+    <div class="grid-3">
+        <div class="form-group"><label>IRN</label><input type="text" id="f_irn" value=""></div>
+        <div class="form-group"><label>Ack No.</label><input type="text" id="f_ackNo" value=""></div>
+        <div class="form-group"><label>Jurisdiction City (footer)</label><input type="text" id="t_juris" value=""></div>
+    </div>
+
+    <h3 class="section-title">Copies to Generate</h3>
+    <p style="color:#666; font-size:13px; margin-top:-8px;">All selected copies are produced together in one print/PDF, one after another (Original, then Duplicate, then Triplicate). You can also choose whether the IRN / Ack No. / Ack Date / QR code block at the top should appear on each copy.</p>
+    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <tr style="background:#f8f9fa;">
+            <th style="text-align:left; padding:8px; border:1px solid #ddd;">Copy</th>
+            <th style="padding:8px; border:1px solid #ddd;">Include this copy</th>
+            <th style="padding:8px; border:1px solid #ddd;">Show IRN / Ack / QR block</th>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Original for Recipient</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_original" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_original" checked></td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Duplicate for Transporter</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_duplicate" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_duplicate" checked></td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Triplicate for Supplier</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_triplicate" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_triplicate" checked></td>
+        </tr>
+    </table>
+
+    <div class="grid-2">
+        <div>
+            <h3 class="section-title">Supplier (Your Details)</h3>
+            <div class="form-group"><label>Company Name</label><input type="text" id="s_name" value=""></div>
+            <div class="form-group"><label>Address Line 1</label><input type="text" id="s_add1" value=""></div>
+            <div class="form-group"><label>Address Line 2</label><input type="text" id="s_add2" value=""></div>
+            <div class="form-group"><label>UDYAM No.</label><input type="text" id="s_udyam" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>GSTIN</label><input type="text" id="s_gst" value=""></div>
+                <div class="form-group"><label>PAN</label><input type="text" id="s_pan" value=""></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>E-Mail</label><input type="text" id="s_email" value=""></div>
+                <div class="form-group"><label>Website</label><input type="text" id="s_web" value=""></div>
+            </div>
+            <div class="form-group"><label>State & Code</label><input type="text" id="s_state" value=""></div>
+            <div class="form-group"><label>Bank Name</label><input type="text" id="s_bank_name" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>Account No.</label><input type="text" id="s_bank_acc" value=""></div>
+                <div class="form-group"><label>IFSC Code</label><input type="text" id="s_bank_ifsc" value=""></div>
+            </div>
+            <div class="form-group"><label>Branch</label><input type="text" id="s_bank_branch" value=""></div>
+        </div>
+        <div>
+            <h3 class="section-title">Buyer / Consignee</h3>
+            <div class="form-group"><label>Buyer Name</label><input type="text" id="b_name" value=""></div>
+            <div class="form-group"><label>Address Line 1</label><input type="text" id="b_add1" value=""></div>
+            <div class="form-group"><label>Address Line 2</label><input type="text" id="b_add2" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>GSTIN</label><input type="text" id="b_gst" value=""></div>
+                <div class="form-group"><label>PAN</label><input type="text" id="b_pan" value=""></div>
+            </div>
+            <div class="form-group"><label>State & Code</label><input type="text" id="b_state" value=""></div>
+            <div class="form-group"><label>Place of Supply</label><input type="text" id="b_pos" value=""></div>
+        </div>
+    </div>
+
+    <h3 class="section-title">Shipping & Transport</h3>
+    <div class="grid-3">
+        <div class="form-group"><label>e-Way Bill No.</label><input type="text" id="t_eway" value=""></div>
+        <div class="form-group"><label>Dispatch Doc No.</label><input type="text" id="t_doc" value=""></div>
+        <div class="form-group"><label>Dispatched Through</label><input type="text" id="t_thru" value=""></div>
+        <div class="form-group"><label>Destination</label><input type="text" id="t_dest" value=""></div>
+        <div class="form-group"><label>Motor Vehicle No.</label><input type="text" id="t_veh" value=""></div>
+        <div class="form-group"><label>Payment Terms</label><input type="text" id="t_pay" value=""></div>
+    </div>
+
+    <h3 class="section-title">Items</h3>
+    <div id="items-container"></div>
+    <button class="btn btn-primary" onclick="addItemRow()">➕ Add Another Item</button>
+
+    <button class="btn btn-success" onclick="generateInvoice()">🖨️ Generate & Print All Copies</button>
+</div>
+
+<div id="print-root"></div>
+
+<script>
+    let itemCount = 0;
+
+    // Standard GST Unit Quantity Codes (UQC) — covers virtually every unit
+    // used on Indian tax invoices.
+    const UNIT_OPTIONS = [
+        "BAG-BAGS", "BAL-BALE", "BDL-BUNDLES", "BKL-BUCKLES", "BOU-BILLION OF UNITS",
+        "BOX-BOX", "BTL-BOTTLES", "BUN-BUNCHES", "CAN-CANS", "CBM-CUBIC METERS",
+        "CCM-CUBIC CENTIMETERS", "CMS-CENTIMETERS", "CTN-CARTONS", "DOZ-DOZENS",
+        "DRM-DRUMS", "GGK-GREAT GROSS", "GMS-GRAMMES", "GRS-GROSS", "GYD-GROSS YARDS",
+        "KGS-KILOGRAMS", "KLR-KILOLITRE", "KME-KILOMETRE", "MLT-MILILITRE",
+        "MTR-METERS", "MTS-METRIC TON", "NOS-NUMBERS", "PAC-PACKS", "PCS-PIECES",
+        "PRS-PAIRS", "QTL-QUINTAL", "ROL-ROLLS", "SET-SETS", "SQF-SQUARE FEET",
+        "SQM-SQUARE METERS", "SQY-SQUARE YARDS", "TBS-TABLETS", "TGM-TEN GROSS",
+        "THD-THOUSANDS", "TON-TONNES", "TUB-TUBES", "UGS-US GALLONS", "UNT-UNITS",
+        "YDS-YARDS", "OTH-OTHERS"
+    ];
+
+    function unitOptionsHTML(selected) {
+        return UNIT_OPTIONS.map(opt => {
+            const code = opt.split('-')[0];
+            const isSelected = code === selected ? 'selected' : '';
+            return `<option value="${code}" ${isSelected}>${opt}</option>`;
+        }).join('');
+    }
+
+    // Tax type/rate options, matching the reference app's "Tax %" picker:
+    // None, Exempted, then GST@x% / IGST@x% pairs for each standard slab.
+    // GST@x% splits into CGST(x/2%) + SGST(x/2%) on the invoice.
+    // IGST@x% stays as a single IGST line (used for interstate supply).
+    const TAX_RATES = [0, 0.25, 3, 5, 12, 18, 28, 40];
+    const TAX_OPTIONS = [
+        { value: 'NONE_0', label: 'None', type: 'NONE', rate: 0 },
+        { value: 'EXEMPT_0', label: 'Exempted', type: 'EXEMPT', rate: 0 },
+        ...TAX_RATES.flatMap(r => ([
+            { value: `GST_${r}`, label: `GST@${r}%`, type: 'GST', rate: r },
+            { value: `IGST_${r}`, label: `IGST@${r}%`, type: 'IGST', rate: r }
+        ]))
+    ];
+    const DEFAULT_TAX_VALUE = 'GST_18';
+
+    function taxOptionsHTML(selected) {
+        const sel = (selected === "" || selected === null || selected === undefined) ? DEFAULT_TAX_VALUE : selected;
+        return TAX_OPTIONS.map(opt => {
+            const isSelected = opt.value === sel ? 'selected' : '';
+            return `<option value="${opt.value}" ${isSelected}>${opt.label}</option>`;
+        }).join('');
+    }
+
+    // Turns a dropdown value like "GST_18" or "IGST_0.25" back into
+    // { type: 'GST'|'IGST'|'NONE'|'EXEMPT', rate: number }.
+    // NONE and EXEMPT are treated as 0% and split like GST (moot, since rate is 0).
+    function parseTaxValue(value) {
+        if (!value) return { type: 'GST', rate: 18 };
+        const idx = value.indexOf('_');
+        const type = value.substring(0, idx);
+        const rate = parseFloat(value.substring(idx + 1)) || 0;
+        return { type, rate };
+    }
+
+    window.onload = function() {
+        addItemRow();
+    };
+
+    function addItemRow(name = "", spec = "", hsn = "", qty = "", rate = "", unit = "", taxRate = "") {
+        itemCount++;
+        const container = document.getElementById('items-container');
+        const row = document.createElement('div');
+        row.className = 'grid-5 item-row';
+        row.id = `item_row_${itemCount}`;
+        row.innerHTML = `
+            <div class="form-group"><label>Item Name</label><input type="text" class="i_name" value="${name}">
+                <label style="margin-top:8px;">Spec / Description</label><input type="text" class="i_spec" value="${spec}"></div>
+            <div class="form-group"><label>HSN</label><input type="text" class="i_hsn" value="${hsn}"></div>
+            <div class="form-group"><label>Qty</label><input type="number" class="i_qty" value="${qty}"></div>
+            <div class="form-group"><label>Rate</label><input type="number" class="i_rate" value="${rate}"></div>
+            <div class="form-group"><label>Unit</label>
+                <select class="i_unit">${unitOptionsHTML(unit)}</select>
+            </div>
+            <div>
+                <div class="form-group"><label>GST %</label>
+                    <select class="i_tax">${taxOptionsHTML(taxRate)}</select>
+                </div>
+                <button class="btn btn-danger" style="width:100%;" onclick="document.getElementById('item_row_${itemCount}').remove()">X Remove</button>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    // Indian Number to Words Converter (integer part)
+    function numberToWords(num) {
+        const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+        const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+        num = Math.floor(num);
+        if ((num.toString()).length > 9) return 'overflow';
+        let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n) return '';
+        let str = '';
+        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+        return str.trim();
+    }
+
+    function amountToWordsWithPaise(amount, currency) {
+        let rupees = Math.floor(amount);
+        let paise = Math.round((amount - rupees) * 100);
+        let words = currency + ' ' + numberToWords(rupees);
+        if (paise > 0) {
+            words += ' and ' + numberToWords(paise) + ' paise';
+        }
+        return words + ' Only';
+    }
+
+    // Builds the markup for ONE copy of the invoice (identical structure, only the
+    // copy label at the top differs). All fillable fields use classes (not ids) so
+    // that a single fill pass updates every copy at once.
+    //
+    // Layout note: this now matches the classic "Tally style" single left column
+    // (Seller -> Consignee -> Buyer stacked, sharing one bordered cell) beside a
+    // continuous right-hand metadata table (Invoice No. / e-Way Bill / Dated etc.)
+    function buildCopyMarkup(copyLabel, showIrnQr) {
+        const irnQrBlock = showIrnQr ? `
+                    <td style="width:28%; text-align:right;" rowspan="2">
+                        <span style="font-size:11px; font-weight:bold;">e-Invoice</span><br>
+                        <div class="p_qr" style="display:inline-block; margin-top:4px;"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="vertical-align:top; padding-top:6px;">
+                        <strong>IRN :</strong> <span style="font-size: 9px;" class="p_irn"></span><br>
+                        <strong>Ack No. :</strong> <span class="p_ackNo"></span><br>
+                        <strong>Ack Date :</strong> <span class="p_ackdate"></span>
+                    </td>
+                </tr>` : `
+                    <td style="width:28%;"></td>
+                </tr>`;
+        return `
+        <div class="invoice-page">
+            <table class="no-print-border" style="margin-bottom:4px;">
+                <tr>
+                    <td style="width:28%;"></td>
+                    <td style="width:44%; text-align:center;">
+                        <span style="font-size:20px; font-weight:bold;">TAX INVOICE</span>
+                        &nbsp;&nbsp;<span style="font-size:12px; font-style:italic;">(${copyLabel})</span>
+                    </td>
+                    ${irnQrBlock}
+            </table>
+
+            <table class="stack-table" style="border: 1px solid #000;">
+                <tr>
+                    <td style="width: 50%; padding: 5px;" rowspan="3">
+                        <div class="party-block p_seller_block"></div>
+                        <div class="party-block party-block-divider p_consignee_block"></div>
+                        <div class="party-block party-block-divider p_buyer_block"></div>
+                    </td>
+                    <td style="width: 25%; padding: 0;">
+                        <table class="no-border-table">
+                            <tr><td>Invoice No.<br><strong class="p_invNo"></strong></td></tr>
+                            <tr><td>Delivery Note<br>&nbsp;</td></tr>
+                            <tr><td>Reference No. & Date.<br>&nbsp;</td></tr>
+                            <tr><td>Buyer's Order No.<br>&nbsp;</td></tr>
+                        </table>
+                    </td>
+                    <td style="width: 25%; padding: 0;">
+                        <table class="no-border-table" style="border-right: none;">
+                            <tr><td style="border-right: none;">e-Way Bill No.<br><strong class="p_eway"></strong></td></tr>
+                            <tr><td style="border-right: none;">Mode/Terms of Payment<br><strong class="p_pay"></strong></td></tr>
+                            <tr><td style="border-right: none;">Other References<br>&nbsp;</td></tr>
+                            <tr><td style="border-right: none;">Dated<br><strong class="p_date"></strong></td></tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 0;">
+                        <table class="no-border-table">
+                            <tr><td>Dispatch Doc No.<br><strong class="p_doc"></strong></td></tr>
+                            <tr><td>Dispatched through<br><strong class="p_thru"></strong></td></tr>
+                            <tr><td>Bill of Lading/LR-RR No.<br>&nbsp;</td></tr>
+                        </table>
+                    </td>
+                    <td style="padding: 0;">
+                        <table class="no-border-table" style="border-right: none;">
+                            <tr><td style="border-right: none;">Delivery Note Date<br>&nbsp;</td></tr>
+                            <tr><td style="border-right: none;">Destination<br><strong class="p_dest"></strong></td></tr>
+                            <tr><td style="border-right: none;">Motor Vehicle No.<br><strong class="p_veh"></strong></td></tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">Terms of Delivery<br>&nbsp;</td>
+                </tr>
+            </table>
+
+            <table class="item-table" style="border: 1px solid #000; border-top: none; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="width: 5%; border-right: 1px solid #000;">SI No.</th>
+                        <th style="width: 35%; border-right: 1px solid #000;">Description of Goods</th>
+                        <th style="width: 10%; border-right: 1px solid #000;">HSN/SAC</th>
+                        <th style="width: 15%; border-right: 1px solid #000;" class="text-right">Quantity</th>
+                        <th style="width: 10%; border-right: 1px solid #000;" class="text-right">Rate</th>
+                        <th style="width: 5%; border-right: 1px solid #000;">per</th>
+                        <th style="width: 20%;" class="text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="p_items_body" style="min-height: 150px;"></tbody>
+                <tbody>
+                    <tr>
+                        <td></td>
+                        <td class="text-right bold p_gst_labels" style="padding-top: 20px;"></td>
+                        <td></td><td></td><td></td><td></td>
+                        <td class="text-right bold p_gst_amounts" style="padding-top: 20px;"></td>
+                    </tr>
+                    <tr>
+                        <td class="border-bottom"></td>
+                        <td class="text-right bold border-bottom">Total</td>
+                        <td class="border-bottom"></td>
+                        <td class="text-right bold border-bottom p_total_qty"></td>
+                        <td class="border-bottom"></td>
+                        <td class="border-bottom"></td>
+                        <td class="text-right bold border-bottom p_grand_total" style="font-size: 14px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table class="stack-table" style="border: 1px solid #000; border-top: none;">
+                <tr>
+                    <td style="width:85%;">Amount Chargeable (in words)<br><strong class="p_words"></strong></td>
+                    <td style="width:15%; text-align:right; vertical-align:bottom;">E. & O.E</td>
+                </tr>
+            </table>
+
+            <div class="p_tax_table_container"></div>
+
+            <table class="stack-table" style="border: 1px solid #000; border-top: none;">
+                <tr>
+                    <td colspan="2">Tax Amount (in words) : <strong class="p_tax_words"></strong></td>
+                </tr>
+                <tr>
+                    <td style="width: 50%; border-bottom: none; border-right: none;">
+                        <div class="p_s_pan_line"></div>
+                        <u>Declaration</u><br>
+                        We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+                    </td>
+                    <td style="width: 50%; border-bottom: none; border-left: none;">
+                        Company's Bank Details
+                        <div style="margin: 5px 0; font-weight: bold;" class="p_s_bank"></div><br>
+                        <div class="text-right bold" style="margin-top: 10px;">for <span class="p_sign_name"></span></div>
+                        <div class="text-right" style="margin-top: 40px;">Authorised Signatory</div>
+                    </td>
+                </tr>
+            </table>
+
+            <p style="text-align:center; margin-top:8px; margin-bottom:2px;">SUBJECT TO <span class="p_juris"></span> JURISDICTION</p>
+            <p style="text-align:center; margin-top:0;">This is a Computer Generated Invoice</p>
+        </div>
+        `;
+    }
+
+    function setClassText(className, text) {
+        document.querySelectorAll('.' + className).forEach(el => el.innerText = text);
+    }
+    function setClassHTML(className, html) {
+        document.querySelectorAll('.' + className).forEach(el => el.innerHTML = html);
+    }
+
+    function generateInvoice() {
+        // Work out which copies were requested, and whether each should show
+        // the IRN / Ack No. / Ack Date / QR code block at the top.
+        let copies = [];
+        if (document.getElementById('cp_original').checked) {
+            copies.push({ label: 'ORIGINAL FOR RECIPIENT', showIrnQr: document.getElementById('irn_original').checked });
+        }
+        if (document.getElementById('cp_duplicate').checked) {
+            copies.push({ label: 'DUPLICATE FOR TRANSPORTER', showIrnQr: document.getElementById('irn_duplicate').checked });
+        }
+        if (document.getElementById('cp_triplicate').checked) {
+            copies.push({ label: 'TRIPLICATE FOR SUPPLIER', showIrnQr: document.getElementById('irn_triplicate').checked });
+        }
+        if (copies.length === 0) { alert('Please select at least one copy to print.'); return; }
+
+        // Build the pages
+        const root = document.getElementById('print-root');
+        root.innerHTML = copies.map(c => buildCopyMarkup(c.label, c.showIrnQr)).join('');
+
+        // ---- Fill in shared data across ALL copies at once ----
+        setClassText('p_invNo', document.getElementById('f_invNo').value);
+        setClassText('p_ackdate', document.getElementById('f_date').value);
+        setClassText('p_date', document.getElementById('f_date').value);
+        setClassText('p_irn', document.getElementById('f_irn').value);
+        setClassText('p_ackNo', document.getElementById('f_ackNo').value);
+        setClassText('p_juris', document.getElementById('t_juris').value);
+
+        // ---- Supplier / Consignee / Buyer blocks (only non-empty fields are shown) ----
+        function val(id) { return document.getElementById(id).value.trim(); }
+        function line(text) { return text ? `${text}<br>` : ''; }
+
+        // Supplier block
+        let sName = val('s_name'), sAdd1 = val('s_add1'), sAdd2 = val('s_add2'),
+            sUdyam = val('s_udyam'), sGst = val('s_gst'), sState = val('s_state'),
+            sEmail = val('s_email'), sWeb = val('s_web');
+        let sellerHTML = '';
+        if (sName) sellerHTML += `<strong style="font-size:13px;">${sName}</strong><br>`;
+        sellerHTML += line(sAdd1);
+        sellerHTML += line(sAdd2);
+        if (sUdyam) sellerHTML += `UDYAM : ${sUdyam}<br>`;
+        if (sGst) sellerHTML += `GSTIN/UIN: <strong>${sGst}</strong><br>`;
+        if (sState) sellerHTML += `State Name : ${sState}<br>`;
+        if (sEmail) sellerHTML += `E-Mail : ${sEmail}<br>`;
+        if (sWeb) sellerHTML += `${sWeb}<br>`;
+        setClassHTML('p_seller_block', sellerHTML);
+
+        // Buyer / Consignee fields (shared between the two party blocks)
+        let bName = val('b_name'), bAdd1 = val('b_add1'), bAdd2 = val('b_add2'),
+            bGst = val('b_gst'), bPan = val('b_pan'), bState = val('b_state'), bPos = val('b_pos');
+
+        let consigneeHTML = 'Consignee (Ship to)<br>';
+        if (bName) consigneeHTML += `<strong style="font-size:13px;">${bName}</strong><br>`;
+        consigneeHTML += line(bAdd1);
+        consigneeHTML += line(bAdd2);
+        if (bGst) consigneeHTML += `GSTIN/UIN : <strong>${bGst}</strong><br>`;
+        if (bPan) consigneeHTML += `PAN/IT No : ${bPan}<br>`;
+        if (bState) consigneeHTML += `State Name : ${bState}<br>`;
+        setClassHTML('p_consignee_block', consigneeHTML);
+
+        let buyerHTML = 'Buyer (Bill to)<br>';
+        if (bName) buyerHTML += `<strong style="font-size:13px;">${bName}</strong><br>`;
+        buyerHTML += line(bAdd1);
+        buyerHTML += line(bAdd2);
+        if (bGst) buyerHTML += `GSTIN/UIN : <strong>${bGst}</strong><br>`;
+        if (bPan) buyerHTML += `PAN/IT No : ${bPan}<br>`;
+        if (bState) buyerHTML += `State Name : ${bState}<br>`;
+        if (bPos) buyerHTML += `Place of Supply : ${bPos}<br>`;
+        setClassHTML('p_buyer_block', buyerHTML);
+
+        setClassText('p_sign_name', sName);
+
+        // Company's PAN line (only shown if filled)
+        let sPan = val('s_pan');
+        setClassHTML('p_s_pan_line', sPan ? `Company's PAN : <strong>${sPan}</strong><br><br>` : '');
+
+        // Bank details (only non-empty lines are shown)
+        let bankName = val('s_bank_name'), bankAcc = val('s_bank_acc'),
+            bankIfsc = val('s_bank_ifsc'), bankBranch = val('s_bank_branch');
+        let bankHTML = '';
+        if (bankName) bankHTML += `Bank Name : ${bankName}<br>`;
+        if (bankAcc) bankHTML += `A/c No. : ${bankAcc}<br>`;
+        if (bankBranch) bankHTML += `Branch : ${bankBranch}<br>`;
+        if (bankIfsc) bankHTML += `IFSC Code : ${bankIfsc}<br>`;
+        setClassHTML('p_s_bank', bankHTML);
+
+        // Transport
+        setClassText('p_eway', document.getElementById('t_eway').value);
+        setClassText('p_doc', document.getElementById('t_doc').value);
+        setClassText('p_thru', document.getElementById('t_thru').value);
+        setClassText('p_dest', document.getElementById('t_dest').value);
+        setClassText('p_veh', document.getElementById('t_veh').value);
+        setClassText('p_pay', document.getElementById('t_pay').value);
+
+        let gstLoc = document.getElementById('t_gstloc').value;
+
+        // ---- Items & Math (computed once, then stamped into every copy) ----
+        let totalQty = 0;
+        let subtotal = 0;
+        let count = 1;
+        let hsnGroups = {};   // keyed by "HSN|type|rate" so different tax slabs/types are shown separately
+        let itemsHTML = '';
+        let totalCgst = 0, totalSgst = 0, totalIgst = 0;
+
+        let names = document.querySelectorAll('.i_name');
+        let specs = document.querySelectorAll('.i_spec');
+        let hsns = document.querySelectorAll('.i_hsn');
+        let qtys = document.querySelectorAll('.i_qty');
+        let rates = document.querySelectorAll('.i_rate');
+        let units = document.querySelectorAll('.i_unit');
+        let taxes = document.querySelectorAll('.i_tax');
+
+        for (let i = 0; i < names.length; i++) {
+            let q = parseFloat(qtys[i].value) || 0;
+            let r = parseFloat(rates[i].value) || 0;
+            let taxInfo = parseTaxValue(taxes[i].value);
+            let amt = q * r;
+            let itemTax = amt * (taxInfo.rate / 100);
+            let itemCgst = 0, itemSgst = 0, itemIgst = 0;
+            if (taxInfo.type === 'IGST') {
+                itemIgst = itemTax;
+            } else {
+                itemCgst = itemTax / 2;
+                itemSgst = itemTax / 2;
+            }
+            totalQty += q;
+            subtotal += amt;
+            totalCgst += itemCgst;
+            totalSgst += itemSgst;
+            totalIgst += itemIgst;
+
+            let hsn = hsns[i].value;
+            let key = hsn + '|' + taxInfo.type + '|' + taxInfo.rate;
+            if (!hsnGroups[key]) hsnGroups[key] = { hsn: hsn, type: taxInfo.type, rate: taxInfo.rate, taxable: 0 };
+            hsnGroups[key].taxable += amt;
+
+            itemsHTML += `
+                <tr>
+                    <td class="text-center">${count}</td>
+                    <td class="bold">${names[i].value}<br><span class="item-spec">${specs[i].value}</span></td>
+                    <td>${hsn}</td>
+                    <td class="text-right bold">${q.toLocaleString('en-IN', {minimumFractionDigits: 3})} ${units[i].value}</td>
+                    <td class="text-right">${r.toFixed(2)}</td>
+                    <td>${units[i].value}</td>
+                    <td class="text-right bold">${amt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                </tr>
+            `;
+            count++;
+        }
+        setClassHTML('p_items_body', itemsHTML);
+
+        let totalTax = totalCgst + totalSgst + totalIgst;
+        let exactTotal = subtotal + totalTax;
+        let roundedTotal = Math.round(exactTotal);
+        let roundOff = roundedTotal - exactTotal;
+
+        // Summary rows above the grand total: only show CGST/SGST and/or IGST
+        // lines if that tax type is actually present on this invoice.
+        let summaryLabels = ['Sub Total'];
+        let summaryAmounts = [subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2})];
+        if (totalCgst > 0 || totalSgst > 0) {
+            summaryLabels.push(`C GST (${gstLoc})`, `S GST (${gstLoc})`);
+            summaryAmounts.push(totalCgst.toLocaleString('en-IN', {minimumFractionDigits: 2}), totalSgst.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        }
+        if (totalIgst > 0) {
+            summaryLabels.push(`I GST (${gstLoc})`);
+            summaryAmounts.push(totalIgst.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        }
+        summaryLabels.push('Round Off (+/-)');
+        summaryAmounts.push(roundOff.toFixed(2));
+
+        setClassHTML('p_gst_labels', summaryLabels.join('<br>'));
+        setClassHTML('p_gst_amounts', summaryAmounts.join('<br>'));
+
+        setClassText('p_total_qty', totalQty.toLocaleString('en-IN', {minimumFractionDigits: 3}));
+        setClassText('p_grand_total', "₹ " + roundedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        setClassText('p_words', amountToWordsWithPaise(roundedTotal, 'INR'));
+
+        // HSN + rate + type-wise tax table. GST rows split into CGST/SGST columns;
+        // IGST rows populate only the IGST columns. Whichever tax type (GST vs IGST)
+        // isn't used anywhere on the invoice has its columns dropped entirely,
+        // rather than just left blank.
+        let totTaxable = 0, totCgst = 0, totSgst = 0, totIgst = 0;
+        const groupList = Object.values(hsnGroups);
+        const hasGst = groupList.some(g => g.type !== 'IGST');
+        const hasIgst = groupList.some(g => g.type === 'IGST');
+        // If there are no items at all yet, default to showing the GST columns.
+        const showGst = hasGst || (!hasGst && !hasIgst);
+        const showIgst = hasIgst;
+
+        let rowsHTML = '';
+        groupList.forEach(group => {
+            let taxable = group.taxable;
+            let rowTax = 0;
+            let cells = `<td class="text-center">${group.hsn}</td><td class="text-right">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+
+            if (group.type === 'IGST') {
+                let igstAmt = taxable * (group.rate / 100);
+                totIgst += igstAmt;
+                rowTax = igstAmt;
+                if (showGst) cells += `<td class="text-center"></td><td class="text-right"></td><td class="text-center"></td><td class="text-right"></td>`;
+                if (showIgst) cells += `<td class="text-center">${group.rate}%</td><td class="text-right">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            } else {
+                let halfRate = group.rate / 2;
+                let c = taxable * (halfRate / 100);
+                let s = taxable * (halfRate / 100);
+                totCgst += c; totSgst += s;
+                rowTax = c + s;
+                if (showGst) cells += `<td class="text-center">${halfRate}%</td><td class="text-right">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="text-center">${halfRate}%</td><td class="text-right">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showIgst) cells += `<td class="text-center"></td><td class="text-right"></td>`;
+            }
+            totTaxable += taxable;
+
+            cells += `<td class="text-right">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            rowsHTML += `<tr>${cells}</tr>`;
+        });
+
+        let totalTaxAll = totCgst + totSgst + totIgst;
+
+        // Build the header row(s)
+        let headRow1 = `<th rowspan="2" style="text-align:center;">HSN/SAC</th><th rowspan="2" style="text-align:right;">Taxable Value</th>`;
+        if (showGst) headRow1 += `<th colspan="2" style="text-align:center;">CGST</th><th colspan="2" style="text-align:center;">SGST/UTGST</th>`;
+        if (showIgst) headRow1 += `<th colspan="2" style="text-align:center;">IGST</th>`;
+        headRow1 += `<th rowspan="2" style="text-align:right;">Total Tax Amount</th>`;
+
+        let headRow2 = '';
+        if (showGst) headRow2 += `<th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th><th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th>`;
+        if (showIgst) headRow2 += `<th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th>`;
+
+        // Build the footer totals row
+        let footerCells = `<td class="text-right">Total</td><td class="text-right">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showGst) footerCells += `<td></td><td class="text-right">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td></td><td class="text-right">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showIgst) footerCells += `<td></td><td class="text-right">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        footerCells += `<td class="text-right">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+
+        const taxTableHTML = `
+            <table class="stack-table" style="border: 1px solid #000; border-top: none; width:100%;">
+                <thead>
+                    <tr>${headRow1}</tr>
+                    <tr>${headRow2}</tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+                <tfoot>
+                    <tr class="bold">${footerCells}</tr>
+                </tfoot>
+            </table>
+        `;
+        setClassHTML('p_tax_table_container', taxTableHTML);
+
+        setClassText('p_tax_words', amountToWordsWithPaise(totalTaxAll, 'INR'));
+
+        // QR code — one rendered instance per copy (each needs its own DOM node)
+        let qrPayload = `IRN:${document.getElementById('f_irn').value}|AckNo:${document.getElementById('f_ackNo').value}|InvNo:${document.getElementById('f_invNo').value}|Date:${document.getElementById('f_date').value}|Total:${roundedTotal}`;
+        document.querySelectorAll('.p_qr').forEach(el => {
+            el.innerHTML = '';
+            new QRCode(el, { text: qrPayload, width: 105, height: 105, correctLevel: QRCode.CorrectLevel.M });
+        });
+
+        setTimeout(() => window.print(), 300);
+    }
+</script>
+</body>
+</html>
