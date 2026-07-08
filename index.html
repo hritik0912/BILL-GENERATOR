@@ -30,7 +30,8 @@
 
     #print-root { display: none; }
 
-    /* --- PROFESSIONAL PRINT TEMPLATE STYLES --- */
+    /* --- PROFESSIONAL PRINT TEMPLATE STYLES (matched to reference PDF) --- */
+    /* PDF fonts: Arial Regular (F3), Arial Bold (F1), Arial Italic (F2), Arial Bold Italic (F4) */
     @media print {
         body { background: white; padding: 0; margin: 0; }
         .app-container { display: none !important; }
@@ -38,11 +39,12 @@
         .invoice-page {
             width: 210mm;
             margin: auto;
-            padding: 7mm 8mm 8mm 8mm;
+            padding: 6.3mm 33mm 17.7mm 7.3mm;
             box-sizing: border-box;
-            font-family: Arial, sans-serif;
-            font-size: 11px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
             color: #000;
+            line-height: 1.25;
             page-break-after: always;
         }
         .invoice-page:last-child { page-break-after: auto; }
@@ -50,7 +52,7 @@
         .no-print-border table, .no-print-border td { border: none !important; }
 
         table { width: 100%; border-collapse: collapse; }
-        td, th { border: 1px solid #000; padding: 3px 6px; vertical-align: top; }
+        td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: top; }
 
         .stack-table { margin-top: 0; }
 
@@ -59,18 +61,62 @@
         .no-border-table td:last-child { border-right: none; }
 
         .item-table { border-top: none; }
-        .item-table th { border-bottom: 1px solid #000; text-align: left; }
-        .item-table td { border-bottom: none; border-right: 1px solid #000; }
+        .item-table th { border-bottom: 1px solid #000; text-align: left; font-weight: normal; }
+        .item-table td { border-bottom: none; border-top: none; border-right: 1px solid #000; }
         .item-table td:last-child { border-right: none; }
-        .item-table .border-bottom { border-bottom: 1px solid #000 !important; }
+        .item-table .border-bottom { border-bottom: none !important; }
 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
-        .bold { font-weight: bold; }
-        .item-spec { font-style: italic; padding-left: 4px; }
 
-        .party-block { margin-bottom: 4px; }
-        .party-block-divider { border-top: 1px solid #000; margin-top: 4px; padding-top: 4px; }
+        /* Exact font sizes from reference PDF (pt units) */
+        .f-12b  { font-size: 12pt;   font-weight: bold; }
+        .f-113b { font-size: 11.3pt; font-weight: bold; }
+        .f-10   { font-size: 10pt; }
+        .f-10b  { font-size: 10pt;   font-weight: bold; }
+        .f-10bi { font-size: 10pt;   font-weight: bold; font-style: italic; }
+        .f-98   { font-size: 9.8pt; }
+        .f-91   { font-size: 9.1pt; }
+        .f-9    { font-size: 9pt; }
+        .f-9b   { font-size: 9pt;    font-weight: bold; }
+        .f-9i   { font-size: 9pt;    font-style: italic; }
+        .f-89   { font-size: 8.9pt; }
+        .f-88i  { font-size: 8.8pt;  font-style: italic; }
+        .f-86   { font-size: 8.6pt; }
+        .f-86b  { font-size: 8.6pt;  font-weight: bold; }
+        .f-85   { font-size: 8.5pt; }
+        .f-85b  { font-size: 8.5pt;  font-weight: bold; }
+        .f-84b  { font-size: 8.4pt;  font-weight: bold; }
+        .f-82b  { font-size: 8.2pt;  font-weight: bold; }
+        .f-79b  { font-size: 7.9pt;  font-weight: bold; }
+        .f-78   { font-size: 7.8pt; }
+        .f-78b  { font-size: 7.8pt;  font-weight: bold; }
+
+        .item-spec { font-size: 9pt; font-style: italic; }
+        .meta-label { font-size: 9pt; }
+        .meta-value { font-size: 10pt; font-weight: bold; }
+        .meta-value-sm { font-size: 8.2pt; font-weight: bold; }
+
+        .party-block { margin-bottom: 3px; }
+        .party-block-divider { border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }
+
+        /* Header metadata grid — 7 equal rows + 1 large Terms of Delivery row (matches PDF) */
+        .header-grid { table-layout: fixed; }
+        .header-grid .party-cell { width: 50.5%; vertical-align: top; }
+        .header-grid .meta-split { width: 12.35%; }
+        .header-grid .meta-col { width: 24.8%; }
+        .header-grid .meta-row td {
+            height: 25.4pt;
+            min-height: 25.4pt;
+            vertical-align: top;
+            box-sizing: border-box;
+        }
+        .header-grid .terms-row td {
+            height: 101.6pt;
+            min-height: 101.6pt;
+            vertical-align: top;
+            box-sizing: border-box;
+        }
     }
 </style>
 </head>
@@ -293,118 +339,112 @@
     // copy label at the top differs). All fillable fields use classes (not ids) so
     // that a single fill pass updates every copy at once.
     //
-    // Layout note: this now matches the classic "Tally style" single left column
-    // (Seller -> Consignee -> Buyer stacked, sharing one bordered cell) beside a
-    // continuous right-hand metadata table (Invoice No. / e-Way Bill / Dated etc.)
+    // Layout: flat 8-row header grid — 7 equal meta rows (25.4pt) + 1 large
+    // Terms of Delivery row (101.6pt, 4× height), matching the reference PDF.
     function buildCopyMarkup(copyLabel, showIrnQr) {
         const irnQrBlock = showIrnQr ? `
                     <td style="width:28%; text-align:right;" rowspan="2">
-                        <span style="font-size:11px; font-weight:bold;">e-Invoice</span><br>
+                        <span class="f-9b">e-Invoice</span><br>
                         <div class="p_qr" style="display:inline-block; margin-top:4px;"></div>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="vertical-align:top; padding-top:6px;">
-                        <strong>IRN :</strong> <span style="font-size: 9px;" class="p_irn"></span><br>
-                        <strong>Ack No. :</strong> <span class="p_ackNo"></span><br>
-                        <strong>Ack Date :</strong> <span class="p_ackdate"></span>
+                    <td colspan="2" style="vertical-align:top; padding-top:4px;">
+                        <span class="f-9">IRN :</span> <span class="f-9b p_irn"></span><br>
+                        <span class="f-9">Ack No. :</span> <span class="f-9b p_ackNo"></span><br>
+                        <span class="f-9">Ack Date :</span> <span class="f-9b p_ackdate"></span>
                     </td>
                 </tr>` : `
                     <td style="width:28%;"></td>
                 </tr>`;
         return `
         <div class="invoice-page">
-            <table class="no-print-border" style="margin-bottom:4px;">
+            <table class="no-print-border" style="margin-bottom:3px;">
                 <tr>
                     <td style="width:28%;"></td>
                     <td style="width:44%; text-align:center;">
-                        <span style="font-size:20px; font-weight:bold;">TAX INVOICE</span>
-                        &nbsp;&nbsp;<span style="font-size:12px; font-style:italic;">(${copyLabel})</span>
+                        <span class="f-12b">TAX INVOICE</span>
+                        &nbsp;&nbsp;<span class="f-88i">(${copyLabel})</span>
                     </td>
                     ${irnQrBlock}
             </table>
 
-            <table class="stack-table" style="border: 1px solid #000;">
-                <tr>
-                    <td style="width: 50%; padding: 5px;" rowspan="3">
+            <table class="stack-table header-grid" style="border: 1px solid #000;">
+                <tr class="meta-row">
+                    <td class="party-cell" rowspan="8" style="padding: 4px;">
                         <div class="party-block p_seller_block"></div>
                         <div class="party-block party-block-divider p_consignee_block"></div>
                         <div class="party-block party-block-divider p_buyer_block"></div>
                     </td>
-                    <td style="width: 25%; padding: 0;">
-                        <table class="no-border-table">
-                            <tr><td>Invoice No.<br><strong class="p_invNo"></strong></td></tr>
-                            <tr><td>Delivery Note<br>&nbsp;</td></tr>
-                            <tr><td>Reference No. & Date.<br>&nbsp;</td></tr>
-                            <tr><td>Buyer's Order No.<br>&nbsp;</td></tr>
-                        </table>
-                    </td>
-                    <td style="width: 25%; padding: 0;">
-                        <table class="no-border-table" style="border-right: none;">
-                            <tr><td style="border-right: none;">e-Way Bill No.<br><strong class="p_eway"></strong></td></tr>
-                            <tr><td style="border-right: none;">Mode/Terms of Payment<br><strong class="p_pay"></strong></td></tr>
-                            <tr><td style="border-right: none;">Other References<br>&nbsp;</td></tr>
-                            <tr><td style="border-right: none;">Dated<br><strong class="p_date"></strong></td></tr>
-                        </table>
-                    </td>
+                    <td class="meta-split"><span class="meta-label">Invoice No.</span><br><span class="meta-value-sm p_invNo"></span></td>
+                    <td class="meta-split"><span class="f-89">e-Way Bill No.</span><br><span class="f-86b p_eway"></span></td>
+                    <td class="meta-col"><span class="meta-label">Dated</span><br><span class="meta-value p_date"></span></td>
                 </tr>
-                <tr>
-                    <td style="padding: 0;">
-                        <table class="no-border-table">
-                            <tr><td>Dispatch Doc No.<br><strong class="p_doc"></strong></td></tr>
-                            <tr><td>Dispatched through<br><strong class="p_thru"></strong></td></tr>
-                            <tr><td>Bill of Lading/LR-RR No.<br>&nbsp;</td></tr>
-                        </table>
-                    </td>
-                    <td style="padding: 0;">
-                        <table class="no-border-table" style="border-right: none;">
-                            <tr><td style="border-right: none;">Delivery Note Date<br>&nbsp;</td></tr>
-                            <tr><td style="border-right: none;">Destination<br><strong class="p_dest"></strong></td></tr>
-                            <tr><td style="border-right: none;">Motor Vehicle No.<br><strong class="p_veh"></strong></td></tr>
-                        </table>
-                    </td>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Delivery Note</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Mode/Terms of Payment</span><br><span class="meta-value p_pay"></span></td>
                 </tr>
-                <tr>
-                    <td colspan="2">Terms of Delivery<br>&nbsp;</td>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Reference No. & Date.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Other References</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Buyer's Order No.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Dated</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Dispatch Doc No.</span><br><span class="meta-value p_doc"></span></td>
+                    <td class="meta-col"><span class="meta-label">Delivery Note Date</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Dispatched through</span><br><span class="meta-value p_thru"></span></td>
+                    <td class="meta-col"><span class="meta-label">Destination</span><br><span class="meta-value p_dest"></span></td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Bill of Lading/LR-RR No.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Motor Vehicle No.</span><br><span class="meta-value p_veh"></span></td>
+                </tr>
+                <tr class="terms-row">
+                    <td colspan="3"><span class="meta-label">Terms of Delivery</span><br>&nbsp;</td>
                 </tr>
             </table>
 
             <table class="item-table" style="border: 1px solid #000; border-top: none; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width: 5%; border-right: 1px solid #000;">SI No.</th>
-                        <th style="width: 35%; border-right: 1px solid #000;">Description of Goods</th>
-                        <th style="width: 10%; border-right: 1px solid #000;">HSN/SAC</th>
-                        <th style="width: 15%; border-right: 1px solid #000;" class="text-right">Quantity</th>
-                        <th style="width: 10%; border-right: 1px solid #000;" class="text-right">Rate</th>
-                        <th style="width: 5%; border-right: 1px solid #000;">per</th>
-                        <th style="width: 20%;" class="text-right">Amount</th>
+                        <th style="width: 16%; border-right: 1px solid #000;"><span class="f-10">Sl</span><br><span class="f-78">No.</span></th>
+                        <th style="width: 34.6%; border-right: 1px solid #000;"><span class="f-9">Description of Goods</span></th>
+                        <th style="width: 10.7%; border-right: 1px solid #000;"><span class="f-9">HSN/SAC</span></th>
+                        <th style="width: 11.6%; border-right: 1px solid #000;" class="text-right"><span class="f-9">Quantity</span></th>
+                        <th style="width: 7.9%; border-right: 1px solid #000;" class="text-right"><span class="f-9">Rate</span></th>
+                        <th style="width: 7.6%; border-right: 1px solid #000;"><span class="f-9">per</span></th>
+                        <th style="width: 10%;" class="text-right"><span class="f-9">Amount</span></th>
                     </tr>
                 </thead>
-                <tbody class="p_items_body" style="min-height: 150px;"></tbody>
+                <tbody class="p_items_body" style="min-height: 114.7pt;"></tbody>
                 <tbody>
                     <tr>
                         <td></td>
-                        <td class="text-right bold p_gst_labels" style="padding-top: 20px;"></td>
+                        <td class="text-right p_gst_labels" style="padding-top: 16px;"></td>
                         <td></td><td></td><td></td><td></td>
-                        <td class="text-right bold p_gst_amounts" style="padding-top: 20px;"></td>
+                        <td class="text-right p_gst_amounts" style="padding-top: 16px;"></td>
                     </tr>
                     <tr>
                         <td class="border-bottom"></td>
-                        <td class="text-right bold border-bottom">Total</td>
+                        <td class="text-right border-bottom f-9">Total</td>
                         <td class="border-bottom"></td>
-                        <td class="text-right bold border-bottom p_total_qty"></td>
+                        <td class="text-right border-bottom f-79b p_total_qty"></td>
                         <td class="border-bottom"></td>
                         <td class="border-bottom"></td>
-                        <td class="text-right bold border-bottom p_grand_total" style="font-size: 14px;"></td>
+                        <td class="text-right border-bottom f-113b p_grand_total"></td>
                     </tr>
                 </tbody>
             </table>
 
             <table class="stack-table" style="border: 1px solid #000; border-top: none;">
                 <tr>
-                    <td style="width:85%;">Amount Chargeable (in words)<br><strong class="p_words"></strong></td>
-                    <td style="width:15%; text-align:right; vertical-align:bottom;">E. & O.E</td>
+                    <td style="width:85%;"><span class="f-85">Amount Chargeable (in words)</span><br><span class="f-10b p_words"></span></td>
+                    <td style="width:15%; text-align:right; vertical-align:bottom;"><span class="f-9i">E. & O.E</span></td>
                 </tr>
             </table>
 
@@ -412,25 +452,25 @@
 
             <table class="stack-table" style="border: 1px solid #000; border-top: none;">
                 <tr>
-                    <td colspan="2">Tax Amount (in words) : <strong class="p_tax_words"></strong></td>
+                    <td colspan="2"><span class="f-85">Tax Amount (in words) :</span> <span class="f-10b p_tax_words"></span></td>
                 </tr>
                 <tr>
                     <td style="width: 50%; border-bottom: none; border-right: none;">
                         <div class="p_s_pan_line"></div>
-                        <u>Declaration</u><br>
-                        We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+                        <span class="f-85">Declaration</span><br>
+                        <span class="f-9">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</span>
                     </td>
                     <td style="width: 50%; border-bottom: none; border-left: none;">
-                        Company's Bank Details
-                        <div style="margin: 5px 0; font-weight: bold;" class="p_s_bank"></div><br>
-                        <div class="text-right bold" style="margin-top: 10px;">for <span class="p_sign_name"></span></div>
-                        <div class="text-right" style="margin-top: 40px;">Authorised Signatory</div>
+                        <span class="f-9">Company's Bank Details</span>
+                        <div style="margin: 4px 0;" class="p_s_bank"></div><br>
+                        <div class="text-right f-85b" style="margin-top: 8px;">for <span class="p_sign_name"></span></div>
+                        <div class="text-right f-85" style="margin-top: 36px;">Authorised Signatory</div>
                     </td>
                 </tr>
             </table>
 
-            <p style="text-align:center; margin-top:8px; margin-bottom:2px;">SUBJECT TO <span class="p_juris"></span> JURISDICTION</p>
-            <p style="text-align:center; margin-top:0;">This is a Computer Generated Invoice</p>
+            <p class="f-9" style="text-align:center; margin-top:6px; margin-bottom:2px;">SUBJECT TO <span class="p_juris"></span> JURISDICTION</p>
+            <p class="f-9" style="text-align:center; margin-top:0;">This is a Computer Generated Invoice</p>
         </div>
         `;
     }
@@ -473,58 +513,60 @@
         function val(id) { return document.getElementById(id).value.trim(); }
         function line(text) { return text ? `${text}<br>` : ''; }
 
-        // Supplier block
+        // Supplier block — Arial 10pt; company name bold, rest regular (matches PDF)
         let sName = val('s_name'), sAdd1 = val('s_add1'), sAdd2 = val('s_add2'),
             sUdyam = val('s_udyam'), sGst = val('s_gst'), sState = val('s_state'),
             sEmail = val('s_email'), sWeb = val('s_web');
         let sellerHTML = '';
-        if (sName) sellerHTML += `<strong style="font-size:13px;">${sName}</strong><br>`;
-        sellerHTML += line(sAdd1);
-        sellerHTML += line(sAdd2);
-        if (sUdyam) sellerHTML += `UDYAM : ${sUdyam}<br>`;
-        if (sGst) sellerHTML += `GSTIN/UIN: <strong>${sGst}</strong><br>`;
-        if (sState) sellerHTML += `State Name : ${sState}<br>`;
-        if (sEmail) sellerHTML += `E-Mail : ${sEmail}<br>`;
-        if (sWeb) sellerHTML += `${sWeb}<br>`;
+        if (sName) sellerHTML += `<span class="f-10b">${sName}</span><br>`;
+        sellerHTML += line(sAdd1) ? `<span class="f-10">${sAdd1}</span><br>` : '';
+        sellerHTML += line(sAdd2) ? `<span class="f-98">${sAdd2}</span><br>` : '';
+        if (sUdyam) sellerHTML += `<span class="f-10">UDYAM : ${sUdyam}</span><br>`;
+        if (sGst) sellerHTML += `<span class="f-10">GSTIN/UIN: ${sGst}</span><br>`;
+        if (sState) sellerHTML += `<span class="f-10">State Name : ${sState}</span><br>`;
+        if (sEmail) sellerHTML += `<span class="f-10">E-Mail : ${sEmail}</span><br>`;
+        if (sWeb) sellerHTML += `<span class="f-10">${sWeb}</span><br>`;
         setClassHTML('p_seller_block', sellerHTML);
 
         // Buyer / Consignee fields (shared between the two party blocks)
         let bName = val('b_name'), bAdd1 = val('b_add1'), bAdd2 = val('b_add2'),
             bGst = val('b_gst'), bPan = val('b_pan'), bState = val('b_state'), bPos = val('b_pos');
 
-        let consigneeHTML = 'Consignee (Ship to)<br>';
-        if (bName) consigneeHTML += `<strong style="font-size:13px;">${bName}</strong><br>`;
-        consigneeHTML += line(bAdd1);
-        consigneeHTML += line(bAdd2);
-        if (bGst) consigneeHTML += `GSTIN/UIN : <strong>${bGst}</strong><br>`;
-        if (bPan) consigneeHTML += `PAN/IT No : ${bPan}<br>`;
-        if (bState) consigneeHTML += `State Name : ${bState}<br>`;
+        let consigneeHTML = '<span class="f-9">Consignee (Ship to)</span><br>';
+        if (bName) consigneeHTML += `<span class="f-10b">${bName}</span><br>`;
+        if (bAdd1) consigneeHTML += `<span class="f-91">${bAdd1}</span><br>`;
+        if (bAdd2) consigneeHTML += `<span class="f-91">${bAdd2}</span><br>`;
+        if (bGst) consigneeHTML += `<span class="f-10">GSTIN/UIN : ${bGst}</span><br>`;
+        if (bPan) consigneeHTML += `<span class="f-9">PAN/IT No : ${bPan}</span><br>`;
+        if (bState) consigneeHTML += `<span class="f-10">State Name : ${bState}</span><br>`;
         setClassHTML('p_consignee_block', consigneeHTML);
 
-        let buyerHTML = 'Buyer (Bill to)<br>';
-        if (bName) buyerHTML += `<strong style="font-size:13px;">${bName}</strong><br>`;
-        buyerHTML += line(bAdd1);
-        buyerHTML += line(bAdd2);
-        if (bGst) buyerHTML += `GSTIN/UIN : <strong>${bGst}</strong><br>`;
-        if (bPan) buyerHTML += `PAN/IT No : ${bPan}<br>`;
-        if (bState) buyerHTML += `State Name : ${bState}<br>`;
-        if (bPos) buyerHTML += `Place of Supply : ${bPos}<br>`;
+        let buyerHTML = '<span class="f-9">Buyer (Bill to)</span><br>';
+        if (bName) buyerHTML += `<span class="f-10b">${bName}</span><br>`;
+        if (bAdd1) buyerHTML += `<span class="f-86">${bAdd1}</span><br>`;
+        if (bAdd2) buyerHTML += `<span class="f-86">${bAdd2}</span><br>`;
+        if (bGst) buyerHTML += `<span class="f-10">GSTIN/UIN : ${bGst}</span><br>`;
+        if (bPan) buyerHTML += `<span class="f-10">PAN/IT No : ${bPan}</span><br>`;
+        if (bState) buyerHTML += `<span class="f-10">State Name : ${bState}</span><br>`;
+        if (bPos) buyerHTML += `<span class="f-10">Place of Supply : ${bPos}</span><br>`;
         setClassHTML('p_buyer_block', buyerHTML);
 
         setClassText('p_sign_name', sName);
 
         // Company's PAN line (only shown if filled)
         let sPan = val('s_pan');
-        setClassHTML('p_s_pan_line', sPan ? `Company's PAN : <strong>${sPan}</strong><br><br>` : '');
+        setClassHTML('p_s_pan_line', sPan ? `<span class="f-9">Company's PAN : <span class="f-9b">${sPan}</span></span><br><br>` : '');
 
-        // Bank details (only non-empty lines are shown)
+        // Bank details — labels 9pt regular, branch/IFSC value 8.4pt bold (matches PDF)
         let bankName = val('s_bank_name'), bankAcc = val('s_bank_acc'),
             bankIfsc = val('s_bank_ifsc'), bankBranch = val('s_bank_branch');
         let bankHTML = '';
-        if (bankName) bankHTML += `Bank Name : ${bankName}<br>`;
-        if (bankAcc) bankHTML += `A/c No. : ${bankAcc}<br>`;
-        if (bankBranch) bankHTML += `Branch : ${bankBranch}<br>`;
-        if (bankIfsc) bankHTML += `IFSC Code : ${bankIfsc}<br>`;
+        if (bankName) bankHTML += `<span class="f-9">Bank Name : <span class="f-78b">${bankName}</span></span><br>`;
+        if (bankAcc) bankHTML += `<span class="f-9">A/c No. : <span class="f-9b">${bankAcc}</span></span><br>`;
+        if (bankBranch || bankIfsc) {
+            let branchVal = [bankBranch, bankIfsc].filter(Boolean).join(' & ');
+            bankHTML += `<span class="f-9">Branch & IFS Code : <span class="f-84b">${branchVal}</span></span><br>`;
+        }
         setClassHTML('p_s_bank', bankHTML);
 
         // Transport
@@ -579,13 +621,13 @@
 
             itemsHTML += `
                 <tr>
-                    <td class="text-center">${count}</td>
-                    <td class="bold">${names[i].value}<br><span class="item-spec">${specs[i].value}</span></td>
-                    <td>${hsn}</td>
-                    <td class="text-right bold">${q.toLocaleString('en-IN', {minimumFractionDigits: 3})} ${units[i].value}</td>
-                    <td class="text-right">${r.toFixed(2)}</td>
-                    <td>${units[i].value}</td>
-                    <td class="text-right bold">${amt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                    <td class="text-center f-10">${count}</td>
+                    <td><span class="f-10b">${names[i].value}</span><br><span class="item-spec">${specs[i].value}</span></td>
+                    <td class="f-9">${hsn}</td>
+                    <td class="text-right f-79b">${q.toLocaleString('en-IN', {minimumFractionDigits: 3})} ${units[i].value}</td>
+                    <td class="text-right f-9">${r.toFixed(2)}</td>
+                    <td class="f-85">${units[i].value}</td>
+                    <td class="text-right f-10b">${amt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                 </tr>
             `;
             count++;
@@ -597,25 +639,30 @@
         let roundedTotal = Math.round(exactTotal);
         let roundOff = roundedTotal - exactTotal;
 
-        // Summary rows above the grand total: only show CGST/SGST and/or IGST
-        // lines if that tax type is actually present on this invoice.
-        let summaryLabels = ['Sub Total'];
+        // Summary rows: subtotal amount only (no label), then CGST/SGST/IGST bold-italic with location, Round Off
+        let summaryLabels = [''];
         let summaryAmounts = [subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2})];
+        const gstLocLabel = gstLoc ? ` (${gstLoc.toUpperCase()})` : '';
         if (totalCgst > 0 || totalSgst > 0) {
-            summaryLabels.push(`C GST (${gstLoc})`, `S GST (${gstLoc})`);
-            summaryAmounts.push(totalCgst.toLocaleString('en-IN', {minimumFractionDigits: 2}), totalSgst.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+            summaryLabels.push(`<span class="f-10bi">C GST${gstLocLabel}</span>`, `<span class="f-10bi">S GST${gstLocLabel}</span>`);
+            summaryAmounts.push(
+                totalCgst.toLocaleString('en-IN', {minimumFractionDigits: 2}),
+                totalSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})
+            );
         }
         if (totalIgst > 0) {
-            summaryLabels.push(`I GST (${gstLoc})`);
+            summaryLabels.push(`<span class="f-10bi">I GST${gstLocLabel}</span>`);
             summaryAmounts.push(totalIgst.toLocaleString('en-IN', {minimumFractionDigits: 2}));
         }
-        summaryLabels.push('Round Off (+/-)');
+        summaryLabels.push('<span class="f-10bi">Round Off (+/-)</span>');
         summaryAmounts.push(roundOff.toFixed(2));
 
         setClassHTML('p_gst_labels', summaryLabels.join('<br>'));
-        setClassHTML('p_gst_amounts', summaryAmounts.join('<br>'));
+        setClassHTML('p_gst_amounts', summaryAmounts.map((a, i) =>
+            i === 0 ? `<span class="f-10">${a}</span>` : `<span class="f-10b">${a}</span>`
+        ).join('<br>'));
 
-        setClassText('p_total_qty', totalQty.toLocaleString('en-IN', {minimumFractionDigits: 3}));
+        setClassText('p_total_qty', totalQty.toLocaleString('en-IN', {minimumFractionDigits: 3}) + (units.length ? ' ' + units[0].value : ''));
         setClassText('p_grand_total', "₹ " + roundedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2}));
         setClassText('p_words', amountToWordsWithPaise(roundedTotal, 'INR'));
 
@@ -635,46 +682,46 @@
         groupList.forEach(group => {
             let taxable = group.taxable;
             let rowTax = 0;
-            let cells = `<td class="text-center">${group.hsn}</td><td class="text-right">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            let cells = `<td class="f-9 text-center">${group.hsn}</td><td class="f-9 text-right">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
 
             if (group.type === 'IGST') {
                 let igstAmt = taxable * (group.rate / 100);
                 totIgst += igstAmt;
                 rowTax = igstAmt;
-                if (showGst) cells += `<td class="text-center"></td><td class="text-right"></td><td class="text-center"></td><td class="text-right"></td>`;
-                if (showIgst) cells += `<td class="text-center">${group.rate}%</td><td class="text-right">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showGst) cells += `<td class="f-9 text-center"></td><td class="f-9 text-right"></td><td class="f-9 text-center"></td><td class="f-9 text-right"></td>`;
+                if (showIgst) cells += `<td class="f-9 text-center">${group.rate}%</td><td class="f-9 text-right">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
             } else {
                 let halfRate = group.rate / 2;
                 let c = taxable * (halfRate / 100);
                 let s = taxable * (halfRate / 100);
                 totCgst += c; totSgst += s;
                 rowTax = c + s;
-                if (showGst) cells += `<td class="text-center">${halfRate}%</td><td class="text-right">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="text-center">${halfRate}%</td><td class="text-right">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-                if (showIgst) cells += `<td class="text-center"></td><td class="text-right"></td>`;
+                if (showGst) cells += `<td class="f-9 text-center">${halfRate}%</td><td class="f-9 text-right">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="f-9 text-center">${halfRate}%</td><td class="f-9 text-right">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showIgst) cells += `<td class="f-9 text-center"></td><td class="f-9 text-right"></td>`;
             }
             totTaxable += taxable;
 
-            cells += `<td class="text-right">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            cells += `<td class="f-9 text-right">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
             rowsHTML += `<tr>${cells}</tr>`;
         });
 
         let totalTaxAll = totCgst + totSgst + totIgst;
 
-        // Build the header row(s)
-        let headRow1 = `<th rowspan="2" style="text-align:center;">HSN/SAC</th><th rowspan="2" style="text-align:right;">Taxable Value</th>`;
-        if (showGst) headRow1 += `<th colspan="2" style="text-align:center;">CGST</th><th colspan="2" style="text-align:center;">SGST/UTGST</th>`;
-        if (showIgst) headRow1 += `<th colspan="2" style="text-align:center;">IGST</th>`;
-        headRow1 += `<th rowspan="2" style="text-align:right;">Total Tax Amount</th>`;
+        // Build the header row(s) — 9pt regular labels, matching PDF tax table
+        let headRow1 = `<th rowspan="2" class="f-9 text-center">HSN/SAC</th><th rowspan="2" class="f-9 text-right">Taxable Value</th>`;
+        if (showGst) headRow1 += `<th colspan="2" class="f-9 text-center">CGST</th><th colspan="2" class="f-9 text-center">SGST/UTGST</th>`;
+        if (showIgst) headRow1 += `<th colspan="2" class="f-9 text-center">IGST</th>`;
+        headRow1 += `<th rowspan="2" class="f-9 text-right">Total Tax Amount</th>`;
 
         let headRow2 = '';
-        if (showGst) headRow2 += `<th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th><th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th>`;
-        if (showIgst) headRow2 += `<th style="text-align:center;">Rate</th><th style="text-align:right;">Amount</th>`;
+        if (showGst) headRow2 += `<th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th><th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th>`;
+        if (showIgst) headRow2 += `<th class="f-9 text-center">Rate</th><th class="f-9 text-right">Amount</th>`;
 
-        // Build the footer totals row
-        let footerCells = `<td class="text-right">Total</td><td class="text-right">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        if (showGst) footerCells += `<td></td><td class="text-right">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td></td><td class="text-right">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        if (showIgst) footerCells += `<td></td><td class="text-right">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-        footerCells += `<td class="text-right">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        // Build the footer totals row — Total label and values bold 9pt
+        let footerCells = `<td class="f-9b text-right">Total</td><td class="f-9b text-right">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showGst) footerCells += `<td></td><td class="f-9b text-right">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td></td><td class="f-9b text-right">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showIgst) footerCells += `<td></td><td class="f-9b text-right">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        footerCells += `<td class="f-9b text-right">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
 
         const taxTableHTML = `
             <table class="stack-table" style="border: 1px solid #000; border-top: none; width:100%;">
@@ -684,7 +731,7 @@
                 </thead>
                 <tbody>${rowsHTML}</tbody>
                 <tfoot>
-                    <tr class="bold">${footerCells}</tr>
+                    <tr>${footerCells}</tr>
                 </tfoot>
             </table>
         `;
