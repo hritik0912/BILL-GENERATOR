@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+    /* --- UI STYLES (Hidden during print) --- */
+    body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+    .app-container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    h1, h2, h3 { color: #333; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+    .grid-4 { display: grid; grid-template-columns: 1.3fr 1fr 0.7fr 0.7fr 0.9fr; gap: 10px; }
+    .grid-5 { display: grid; grid-template-columns: 1.2fr 0.9fr 0.6fr 0.6fr 0.7fr 0.8fr; gap: 10px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: Arial; }
+    textarea { resize: vertical; }
+    .section-title { border-bottom: 2px solid #007bff; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; color: #007bff; }
+    .item-row { background: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px dashed #ccc; margin-bottom: 10px; }
+    .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-success { background-color: #28a745; color: white; width: 100%; font-size: 18px; padding: 15px; margin-top: 20px; }
+    .btn-danger { background-color: #dc3545; color: white; padding: 5px 10px; margin-top: 23px; }
+    .copy-check { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+    .copy-check input { width: auto; }
+    .copy-check label { margin: 0; }
+
+    #print-root { display: none; }
+
+    /* --- PROFESSIONAL PRINT TEMPLATE STYLES (matched to reference PDF) --- */
+    /* PDF fonts: Arial Regular (F3), Arial Bold (F1), Arial Italic (F2), Arial Bold Italic (F4) */
+    @media print {
+        body { background: white; padding: 0; margin: 0; }
+        .app-container { display: none !important; }
+        #print-root { display: block !important; }
+        .invoice-page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: auto;
+            padding: 6mm 7mm 8mm 7mm;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            color: #000;
+            line-height: 1.25;
+            page-break-after: always;
+        }
+        .invoice-page:last-child { page-break-after: auto; }
+
+        .no-print-border table, .no-print-border td { border: none !important; }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; border-spacing: 0; }
+        td, th {
+            border: 0.45px solid #000;
+            padding: 1.5px 3px;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .stack-table { margin-top: 0; }
+
+        .no-border-table td { border: none; border-right: 1px solid #000; border-bottom: 1px solid #000; }
+        .no-border-table tr:last-child td { border-bottom: none; }
+        .no-border-table td:last-child { border-right: none; }
+
+        .item-table { border-top: none; width: 100%; table-layout: auto; }
+        .item-table th { border-bottom: 1px solid #000; text-align: left; font-weight: normal; }
+        .item-table td { border-bottom: none; border-top: none; border-right: 1px solid #000; }
+        .item-table td:last-child { border-right: none; }
+        .item-table .border-bottom { border-bottom: none !important; }
+        .item-table .amount-col-separator { border-top: 0.45px solid #000 !important; }
+        .item-table .item-total-row td { border-top: 0.45px solid #000 !important; }
+        .item-table .col-sl {
+            width: 3.8%;
+            min-width: 3.8%;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .item-table .col-desc {
+            width: auto;
+            min-width: 24%;
+            white-space: normal;
+        }
+        .item-table .col-hsn {
+            width: 8.5%;
+            min-width: 8.5%;
+            text-align: center;
+            white-space: normal;
+        }
+        .item-table .col-qty {
+            width: 10%;
+            min-width: 10%;
+            text-align: center;
+            white-space: normal;
+        }
+        .item-table .col-rate {
+            width: 9%;
+            min-width: 9%;
+            text-align: center;
+            white-space: normal;
+        }
+        .item-table .col-unit {
+            width: 4%;
+            min-width: 4%;
+            text-align: center;
+            white-space: normal;
+        }
+        .item-table .col-amount {
+            width: 12%;
+            min-width: 12%;
+            text-align: center;
+            white-space: normal;
+        }
+
+        /* Amount words — single cell, E. & O.E right-aligned, no vertical divider */
+        .amount-words-table td { border-right: none !important; position: relative; }
+        .amount-words-table .eoe-inline {
+            position: absolute;
+            right: 4px;
+            bottom: 2px;
+        }
+
+        /* Tax table — HSN/SAC gets the extra width, GST columns stay compact, and numeric cells expand naturally */
+        .tax-table {
+            width: 100%;
+            table-layout: auto;
+        }
+        .tax-table th,
+        .tax-table td {
+            white-space: nowrap;
+        }
+        .tax-table thead th {
+            font-weight: normal;
+        }
+        .tax-table tfoot tr {
+            border-bottom: none !important;
+        }
+        .tax-table tfoot td {
+            border-top: none !important;
+            border-bottom: none !important;
+        }
+        .tax-table .col-hsn {
+            width: 34%;
+            min-width: 34%;
+            text-align: left;
+        }
+        .tax-table .col-taxable {
+            width: 10%;
+            min-width: 10%;
+            text-align: center;
+        }
+        .tax-table .col-rate {
+            width: 4.5%;
+            min-width: 4.5%;
+            text-align: center;
+        }
+        .tax-table .col-num {
+            width: 7.5%;
+            min-width: 7.5%;
+            text-align: center;
+        }
+        .tax-table .col-total-tax {
+            width: 9%;
+            min-width: 9%;
+            text-align: center;
+        }
+        .tax-table tfoot td.col-hsn { text-align: right; }
+
+        /* Footer — no line after tax words; declaration pushed down; signatory box */
+        .footer-table td { vertical-align: top; }
+        .footer-table .tax-words-cell { border-bottom: none !important; padding-bottom: 4px; }
+        .footer-table .footer-body-left {
+            width: 50%;
+            padding-top: 28pt;
+            border-top: none !important;
+            border-right: none !important;
+        }
+        .footer-table .footer-body-right {
+            width: 50%;
+            padding: 0;
+            border-top: none !important;
+            border-left: none !important;
+        }
+        .footer-table .declaration-label {
+            text-decoration: underline;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        .footer-table .bank-block { padding: 2px 4px; }
+        .footer-table .signatory-box {
+            border: 0.45px solid #000;
+            width: 100%;
+            min-height: 36pt;
+            margin: 20pt 0 0 auto;
+            padding: 4px 5px 4px;
+            box-sizing: border-box;
+        }
+        .footer-table .signatory-label { margin-top: 16pt; }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        /* Exact font sizes from reference PDF (pt units) */
+        .f-12b  { font-size: 12.6pt; font-weight: bold; }
+        .f-113b { font-size: 12.0pt; font-weight: bold; }
+        .f-10   { font-size: 10.8pt; }
+        .f-10b  { font-size: 10.9pt; font-weight: bold; }
+        .f-10bi { font-size: 10.9pt; font-weight: bold; font-style: italic; }
+        .f-98   { font-size: 10.5pt; }
+        .f-91   { font-size: 10.1pt; }
+        .f-9    { font-size: 10.0pt; }
+        .f-9b   { font-size: 10.0pt; font-weight: bold; }
+        .f-9i   { font-size: 10.0pt; font-style: italic; }
+        .f-89   { font-size: 10.1pt; }
+        .f-88i  { font-size: 10.0pt;  font-style: italic; }
+        .f-86   { font-size: 9.8pt; }
+        .f-86b  { font-size: 9.8pt;  font-weight: bold; }
+        .f-85   { font-size: 9.7pt; }
+        .f-85b  { font-size: 9.7pt;  font-weight: bold; }
+        .f-84b  { font-size: 9.6pt;  font-weight: bold; }
+        .f-82b  { font-size: 9.4pt;  font-weight: bold; }
+        .f-79b  { font-size: 9.1pt;  font-weight: bold; }
+        .f-78   { font-size: 9.0pt; }
+        .f-78b  { font-size: 9.0pt;  font-weight: bold; }
+
+        .item-spec { font-size: 10pt; font-style: italic; padding-left: 3px; }
+        .meta-label { font-size: 9.3pt; }
+        .meta-value { font-size: 10.1pt; font-weight: bold; }
+        .meta-value-sm { font-size: 8.6pt; font-weight: bold; }
+
+        .party-block { margin-bottom: 3px; }
+        .party-block .f-9 { font-size: 9.2pt; }
+        .party-block .f-10b { font-size: 10.2pt; }
+        .party-block-divider { border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }
+
+        /* Header metadata grid — 7 equal rows + 1 large Terms of Delivery row (matches PDF) */
+        .header-grid { table-layout: fixed; }
+        .header-grid .party-cell { width: 50.5%; vertical-align: top; }
+        .header-grid .meta-split { width: 12.35%; }
+        .header-grid .meta-split + .meta-split {
+            border-left: none;
+        }
+        .header-grid .meta-col { width: 24.8%; }
+        .header-grid .meta-row td {
+            height: 25.4pt;
+            min-height: 25.4pt;
+            vertical-align: top;
+            box-sizing: border-box;
+        }
+        .header-grid .terms-row td {
+            height: 101.6pt;
+            min-height: 101.6pt;
+            vertical-align: top;
+            box-sizing: border-box;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="app-container" id="form-section">
+    <h1 style="text-align: center;">Master Invoice Form</h1>
+    <p style="text-align: center; color: #666;">Fill in the details below to generate a printable tax invoice.</p>
+
+    <h3 class="section-title">Document Settings</h3>
+    <div class="grid-3">
+        <div class="form-group"><label>Invoice No.</label><input type="text" id="f_invNo" value=""></div>
+        <div class="form-group"><label>Date</label><input type="text" id="f_date" value=""></div>
+        <div class="form-group"><label>GST Location (for CGST/SGST label)</label><input type="text" id="t_gstloc" value=""></div>
+    </div>
+    <div class="grid-3">
+        <div class="form-group"><label>IRN</label><input type="text" id="f_irn" value=""></div>
+        <div class="form-group"><label>Ack No.</label><input type="text" id="f_ackNo" value=""></div>
+        <div class="form-group"><label>Jurisdiction City (footer)</label><input type="text" id="t_juris" value=""></div>
+    </div>
+
+    <h3 class="section-title">Copies to Generate</h3>
+    <p style="color:#666; font-size:13px; margin-top:-8px;">All selected copies are produced together in one print/PDF, one after another (Original, then Duplicate, then Triplicate). You can also choose whether the IRN / Ack No. / Ack Date / QR code block at the top should appear on each copy.</p>
+    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <tr style="background:#f8f9fa;">
+            <th style="text-align:left; padding:8px; border:1px solid #ddd;">Copy</th>
+            <th style="padding:8px; border:1px solid #ddd;">Include this copy</th>
+            <th style="padding:8px; border:1px solid #ddd;">Show IRN / Ack / QR block</th>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Original for Recipient</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_original" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_original" checked></td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Duplicate for Transporter</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_duplicate" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_duplicate" checked></td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border:1px solid #ddd;">Triplicate for Supplier</td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="cp_triplicate" checked></td>
+            <td style="text-align:center; padding:8px; border:1px solid #ddd;"><input type="checkbox" id="irn_triplicate" checked></td>
+        </tr>
+    </table>
+
+    <div class="grid-2">
+        <div>
+            <h3 class="section-title">Supplier (Your Details)</h3>
+            <div class="form-group"><label>Company Name</label><input type="text" id="s_name" value=""></div>
+            <div class="form-group"><label>Address Line 1</label><input type="text" id="s_add1" value=""></div>
+            <div class="form-group"><label>Address Line 2</label><input type="text" id="s_add2" value=""></div>
+            <div class="form-group"><label>UDYAM No.</label><input type="text" id="s_udyam" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>GSTIN</label><input type="text" id="s_gst" value=""></div>
+                <div class="form-group"><label>PAN</label><input type="text" id="s_pan" value=""></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>E-Mail</label><input type="text" id="s_email" value=""></div>
+                <div class="form-group"><label>Website</label><input type="text" id="s_web" value=""></div>
+            </div>
+            <div class="form-group"><label>State & Code</label><input type="text" id="s_state" value=""></div>
+            <div class="form-group"><label>Bank Name</label><input type="text" id="s_bank_name" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>Account No.</label><input type="text" id="s_bank_acc" value=""></div>
+                <div class="form-group"><label>IFSC Code</label><input type="text" id="s_bank_ifsc" value=""></div>
+            </div>
+            <div class="form-group"><label>Branch</label><input type="text" id="s_bank_branch" value=""></div>
+        </div>
+        <div>
+            <h3 class="section-title">Buyer / Consignee</h3>
+            <div class="form-group"><label>Buyer Name</label><input type="text" id="b_name" value=""></div>
+            <div class="form-group"><label>Address Line 1</label><input type="text" id="b_add1" value=""></div>
+            <div class="form-group"><label>Address Line 2</label><input type="text" id="b_add2" value=""></div>
+            <div class="grid-2">
+                <div class="form-group"><label>GSTIN</label><input type="text" id="b_gst" value=""></div>
+                <div class="form-group"><label>PAN</label><input type="text" id="b_pan" value=""></div>
+            </div>
+            <div class="form-group"><label>State & Code</label><input type="text" id="b_state" value=""></div>
+            <div class="form-group"><label>Place of Supply</label><input type="text" id="b_pos" value=""></div>
+        </div>
+    </div>
+
+    <h3 class="section-title">Shipping & Transport</h3>
+    <div class="grid-3">
+        <div class="form-group"><label>e-Way Bill No.</label><input type="text" id="t_eway" value=""></div>
+        <div class="form-group"><label>Dispatch Doc No.</label><input type="text" id="t_doc" value=""></div>
+        <div class="form-group"><label>Dispatched Through</label><input type="text" id="t_thru" value=""></div>
+        <div class="form-group"><label>Destination</label><input type="text" id="t_dest" value=""></div>
+        <div class="form-group"><label>Motor Vehicle No.</label><input type="text" id="t_veh" value=""></div>
+        <div class="form-group"><label>Payment Terms</label><input type="text" id="t_pay" value=""></div>
+    </div>
+
+    <h3 class="section-title">Items</h3>
+    <div id="items-container"></div>
+    <button class="btn btn-primary" onclick="addItemRow()">➕ Add Another Item</button>
+
+    <button class="btn btn-success" onclick="generateInvoice()">🖨️ Generate & Print All Copies</button>
+</div>
+
+<div id="print-root"></div>
+
+<script>
+    let itemCount = 0;
+
+    // Standard GST Unit Quantity Codes (UQC) — covers virtually every unit
+    // used on Indian tax invoices.
+    const UNIT_OPTIONS = [
+        "BAG-BAGS", "BAL-BALE", "BDL-BUNDLES", "BKL-BUCKLES", "BOU-BILLION OF UNITS",
+        "BOX-BOX", "BTL-BOTTLES", "BUN-BUNCHES", "CAN-CANS", "CBM-CUBIC METERS",
+        "CCM-CUBIC CENTIMETERS", "CMS-CENTIMETERS", "CTN-CARTONS", "DOZ-DOZENS",
+        "DRM-DRUMS", "GGK-GREAT GROSS", "GMS-GRAMMES", "GRS-GROSS", "GYD-GROSS YARDS",
+        "KGS-KILOGRAMS", "KLR-KILOLITRE", "KME-KILOMETRE", "MLT-MILILITRE",
+        "MTR-METERS", "MTS-METRIC TON", "NOS-NUMBERS", "PAC-PACKS", "PCS-PIECES",
+        "PRS-PAIRS", "QTL-QUINTAL", "ROL-ROLLS", "SET-SETS", "SQF-SQUARE FEET",
+        "SQM-SQUARE METERS", "SQY-SQUARE YARDS", "TBS-TABLETS", "TGM-TEN GROSS",
+        "THD-THOUSANDS", "TON-TONNES", "TUB-TUBES", "UGS-US GALLONS", "UNT-UNITS",
+        "YDS-YARDS", "OTH-OTHERS"
+    ];
+
+    function unitOptionsHTML(selected) {
+        return UNIT_OPTIONS.map(opt => {
+            const code = opt.split('-')[0];
+            const isSelected = code === selected ? 'selected' : '';
+            return `<option value="${code}" ${isSelected}>${opt}</option>`;
+        }).join('');
+    }
+
+    // Tax type/rate options, matching the reference app's "Tax %" picker:
+    // None, Exempted, then GST@x% / IGST@x% pairs for each standard slab.
+    // GST@x% splits into CGST(x/2%) + SGST(x/2%) on the invoice.
+    // IGST@x% stays as a single IGST line (used for interstate supply).
+    const TAX_RATES = [0, 0.25, 3, 5, 12, 18, 28, 40];
+    const TAX_OPTIONS = [
+        { value: 'NONE_0', label: 'None', type: 'NONE', rate: 0 },
+        { value: 'EXEMPT_0', label: 'Exempted', type: 'EXEMPT', rate: 0 },
+        ...TAX_RATES.flatMap(r => ([
+            { value: `GST_${r}`, label: `GST@${r}%`, type: 'GST', rate: r },
+            { value: `IGST_${r}`, label: `IGST@${r}%`, type: 'IGST', rate: r }
+        ]))
+    ];
+    const DEFAULT_TAX_VALUE = 'GST_18';
+
+    function taxOptionsHTML(selected) {
+        const sel = (selected === "" || selected === null || selected === undefined) ? DEFAULT_TAX_VALUE : selected;
+        return TAX_OPTIONS.map(opt => {
+            const isSelected = opt.value === sel ? 'selected' : '';
+            return `<option value="${opt.value}" ${isSelected}>${opt.label}</option>`;
+        }).join('');
+    }
+
+    // Turns a dropdown value like "GST_18" or "IGST_0.25" back into
+    // { type: 'GST'|'IGST'|'NONE'|'EXEMPT', rate: number }.
+    // NONE and EXEMPT are treated as 0% and split like GST (moot, since rate is 0).
+    function parseTaxValue(value) {
+        if (!value) return { type: 'GST', rate: 18 };
+        const idx = value.indexOf('_');
+        const type = value.substring(0, idx);
+        const rate = parseFloat(value.substring(idx + 1)) || 0;
+        return { type, rate };
+    }
+
+    window.onload = function() {
+        addItemRow();
+    };
+
+    function addItemRow(name = "", spec = "", hsn = "", qty = "", rate = "", unit = "", taxRate = "") {
+        itemCount++;
+        const container = document.getElementById('items-container');
+        const row = document.createElement('div');
+        row.className = 'grid-5 item-row';
+        row.id = `item_row_${itemCount}`;
+        row.innerHTML = `
+            <div class="form-group"><label>Item Name</label><input type="text" class="i_name" value="${name}">
+                <label style="margin-top:8px;">Spec / Description</label><input type="text" class="i_spec" value="${spec}"></div>
+            <div class="form-group"><label>HSN</label><input type="text" class="i_hsn" value="${hsn}"></div>
+            <div class="form-group"><label>Qty</label><input type="number" class="i_qty" value="${qty}"></div>
+            <div class="form-group"><label>Rate</label><input type="number" class="i_rate" value="${rate}"></div>
+            <div class="form-group"><label>Unit</label>
+                <select class="i_unit">${unitOptionsHTML(unit)}</select>
+            </div>
+            <div>
+                <div class="form-group"><label>GST %</label>
+                    <select class="i_tax">${taxOptionsHTML(taxRate)}</select>
+                </div>
+                <button class="btn btn-danger" style="width:100%;" onclick="document.getElementById('item_row_${itemCount}').remove()">X Remove</button>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    // Indian Number to Words Converter (integer part)
+    function numberToWords(num) {
+        const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+        const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+        num = Math.floor(num);
+        if ((num.toString()).length > 9) return 'overflow';
+        let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n) return '';
+        let str = '';
+        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+        return str.trim();
+    }
+
+    function amountToWordsWithPaise(amount, currency) {
+        let rupees = Math.floor(amount);
+        let paise = Math.round((amount - rupees) * 100);
+        let words = currency + ' ' + numberToWords(rupees);
+        if (paise > 0) {
+            words += ' and ' + numberToWords(paise) + ' paise';
+        }
+        return words + ' Only';
+    }
+
+    // Builds the markup for ONE copy of the invoice (identical structure, only the
+    // copy label at the top differs). All fillable fields use classes (not ids) so
+    // that a single fill pass updates every copy at once.
+    //
+    // Layout: flat 8-row header grid — 7 equal meta rows (25.4pt) + 1 large
+    // Terms of Delivery row (101.6pt, 4× height), matching the reference PDF.
+    function buildCopyMarkup(copyLabel, showIrnQr) {
+        const irnQrBlock = showIrnQr ? `
+                    <td style="width:28%; text-align:right;" rowspan="2">
+                        <span class="f-9b">e-Invoice</span><br>
+                        <div class="p_qr" style="display:inline-block; margin-top:4px;"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="vertical-align:top; padding-top:4px;">
+                        <span class="f-9">IRN :</span> <span class="f-9b p_irn"></span><br>
+                        <span class="f-9">Ack No. :</span> <span class="f-9b p_ackNo"></span><br>
+                        <span class="f-9">Ack Date :</span> <span class="f-9b p_ackdate"></span>
+                    </td>
+                </tr>` : `
+                    <td style="width:28%;"></td>
+                </tr>`;
+        return `
+        <div class="invoice-page">
+            <table class="no-print-border" style="margin-bottom:3px;">
+                <tr>
+                    <td style="width:28%;"></td>
+                    <td style="width:44%; text-align:center;">
+                        <span class="f-12b">TAX INVOICE</span>
+                        &nbsp;&nbsp;<span class="f-88i">(${copyLabel})</span>
+                    </td>
+                    ${irnQrBlock}
+            </table>
+
+            <table class="stack-table header-grid" style="border: 1px solid #000;">
+                <tr class="meta-row">
+                    <td class="party-cell" rowspan="8" style="padding: 4px;">
+                        <div class="party-block p_seller_block"></div>
+                        <div class="party-block party-block-divider p_consignee_block"></div>
+                        <div class="party-block party-block-divider p_buyer_block"></div>
+                    </td>
+                    <td class="meta-split" style="border-right:none;"><span class="meta-label">Invoice No.</span><br><span class="meta-value-sm p_invNo"></span></td>
+                    <td class="meta-split" style="border-left:none; border-right:none;"><span class="f-89">e-Way Bill No.</span><br><span class="f-86b p_eway"></span></td>
+                    <td class="meta-col"><span class="meta-label">Dated</span><br><span class="meta-value p_date"></span></td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Delivery Note</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Mode/Terms of Payment</span><br><span class="meta-value p_pay"></span></td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Reference No. & Date.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Other References</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Buyer's Order No.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Dated</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Dispatch Doc No.</span><br><span class="meta-value p_doc"></span></td>
+                    <td class="meta-col"><span class="meta-label">Delivery Note Date</span><br>&nbsp;</td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Dispatched through</span><br><span class="meta-value p_thru"></span></td>
+                    <td class="meta-col"><span class="meta-label">Destination</span><br><span class="meta-value p_dest"></span></td>
+                </tr>
+                <tr class="meta-row">
+                    <td colspan="2"><span class="meta-label">Bill of Lading/LR-RR No.</span><br>&nbsp;</td>
+                    <td class="meta-col"><span class="meta-label">Motor Vehicle No.</span><br><span class="meta-value p_veh"></span></td>
+                </tr>
+                <tr class="terms-row">
+                    <td colspan="3"><span class="meta-label">Terms of Delivery</span><br>&nbsp;</td>
+                </tr>
+            </table>
+
+            <table class="item-table" style="border: 1px solid #000; border-top: none; width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="col-sl" style="border-right: 1px solid #000;"><span class="f-10">Sl</span><br><span class="f-80">No.</span></th>
+                        <th class="col-desc" style="border-right: 1px solid #000;"><span class="f-91">Description of Goods</span></th>
+                        <th class="col-hsn" style="border-right: 1px solid #000;"><span class="f-91">HSN/SAC</span></th>
+                        <th class="col-qty" style="border-right: 1px solid #000;"><span class="f-91">Quantity</span></th>
+                        <th class="col-rate" style="border-right: 1px solid #000;"><span class="f-91">Rate</span></th>
+                        <th class="col-unit" style="border-right: 1px solid #000;"><span class="f-91">per</span></th>
+                        <th class="col-amount"><span class="f-91">Amount</span></th>
+                    </tr>
+                </thead>
+                <tbody class="p_items_body" style="min-height: 114.7pt;"></tbody>
+                <tbody>
+                    <tr>
+                        <td></td>
+                        <td class="text-right p_gst_labels" style="padding-top: 16px;"></td>
+                        <td></td><td></td><td></td><td></td>
+                        <td class="text-right p_gst_amounts amount-col-separator" style="padding-top: 16px;"></td>
+                    </tr>
+                    <tr class="item-total-row">
+                        <td class="border-bottom"></td>
+                        <td class="text-right border-bottom f-9">Total</td>
+                        <td class="border-bottom"></td>
+                        <td class="text-right border-bottom f-79b p_total_qty"></td>
+                        <td class="border-bottom"></td>
+                        <td class="border-bottom"></td>
+                        <td class="text-right border-bottom f-113b p_grand_total"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table class="stack-table amount-words-table" style="border: 1px solid #000; border-top: none;">
+                <tr>
+                    <td>
+                        <span class="f-85">Amount Chargeable (in words)</span><br>
+                        <span class="f-10b p_words"></span>
+                        <span class="f-9i eoe-inline">E. & O.E</span>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="p_tax_table_container"></div>
+
+            <table class="stack-table footer-table" style="border: 1px solid #000; border-top: none;">
+                <tr>
+                    <td colspan="2" class="tax-words-cell"><span class="f-85">Tax Amount (in words) :</span> <span class="f-10b p_tax_words"></span></td>
+                </tr>
+                <tr>
+                    <td class="footer-body-left">
+                        <div class="p_s_pan_line"></div>
+                        <span class="f-85 declaration-label">Declaration</span><br>
+                        <span class="f-9">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</span>
+                    </td>
+                    <td class="footer-body-right">
+                        <div class="bank-block">
+                            <span class="f-9">Company's Bank Details</span>
+                            <div class="p_s_bank"></div>
+                        </div>
+                        <div class="signatory-box">
+                            <div class="text-right f-85b">for <span class="p_sign_name"></span></div>
+                            <div class="text-right f-85 signatory-label">Authorised Signatory</div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <p class="f-9" style="text-align:center; margin-top:6px; margin-bottom:2px;">SUBJECT TO <span class="p_juris"></span> JURISDICTION</p>
+            <p class="f-9" style="text-align:center; margin-top:0;">This is a Computer Generated Invoice</p>
+        </div>
+        `;
+    }
+
+    function setClassText(className, text) {
+        document.querySelectorAll('.' + className).forEach(el => el.innerText = text);
+    }
+    function setClassHTML(className, html) {
+        document.querySelectorAll('.' + className).forEach(el => el.innerHTML = html);
+    }
+
+    function generateInvoice() {
+        // Work out which copies were requested, and whether each should show
+        // the IRN / Ack No. / Ack Date / QR code block at the top.
+        let copies = [];
+        if (document.getElementById('cp_original').checked) {
+            copies.push({ label: 'ORIGINAL FOR RECIPIENT', showIrnQr: document.getElementById('irn_original').checked });
+        }
+        if (document.getElementById('cp_duplicate').checked) {
+            copies.push({ label: 'DUPLICATE FOR TRANSPORTER', showIrnQr: document.getElementById('irn_duplicate').checked });
+        }
+        if (document.getElementById('cp_triplicate').checked) {
+            copies.push({ label: 'TRIPLICATE FOR SUPPLIER', showIrnQr: document.getElementById('irn_triplicate').checked });
+        }
+        if (copies.length === 0) { alert('Please select at least one copy to print.'); return; }
+
+        // Build the pages
+        const root = document.getElementById('print-root');
+        root.innerHTML = copies.map(c => buildCopyMarkup(c.label, c.showIrnQr)).join('');
+
+        // ---- Fill in shared data across ALL copies at once ----
+        setClassText('p_invNo', document.getElementById('f_invNo').value);
+        setClassText('p_ackdate', document.getElementById('f_date').value);
+        setClassText('p_date', document.getElementById('f_date').value);
+        setClassText('p_irn', document.getElementById('f_irn').value);
+        setClassText('p_ackNo', document.getElementById('f_ackNo').value);
+        setClassText('p_juris', document.getElementById('t_juris').value);
+
+        // ---- Supplier / Consignee / Buyer blocks (only non-empty fields are shown) ----
+        function val(id) { return document.getElementById(id).value.trim(); }
+        function line(text) { return text ? `${text}<br>` : ''; }
+
+        // Supplier block — Arial 10pt; company name bold, rest regular (matches PDF)
+        let sName = val('s_name'), sAdd1 = val('s_add1'), sAdd2 = val('s_add2'),
+            sUdyam = val('s_udyam'), sGst = val('s_gst'), sState = val('s_state'),
+            sEmail = val('s_email'), sWeb = val('s_web');
+        let sellerHTML = '';
+        if (sName) sellerHTML += `<span class="f-12b">${sName}</span><br>`;
+        sellerHTML += line(sAdd1) ? `<span class="f-10">${sAdd1}</span><br>` : '';
+        sellerHTML += line(sAdd2) ? `<span class="f-98">${sAdd2}</span><br>` : '';
+        if (sUdyam) sellerHTML += `<span class="f-10">UDYAM : ${sUdyam}</span><br>`;
+        if (sGst) sellerHTML += `<span class="f-10">GSTIN/UIN: ${sGst}</span><br>`;
+        if (sState) sellerHTML += `<span class="f-10">State Name : ${sState}</span><br>`;
+        if (sEmail) sellerHTML += `<span class="f-10">E-Mail : ${sEmail}</span><br>`;
+        if (sWeb) sellerHTML += `<span class="f-10">${sWeb}</span><br>`;
+        setClassHTML('p_seller_block', sellerHTML);
+
+        // Buyer / Consignee fields (shared between the two party blocks)
+        let bName = val('b_name'), bAdd1 = val('b_add1'), bAdd2 = val('b_add2'),
+            bGst = val('b_gst'), bPan = val('b_pan'), bState = val('b_state'), bPos = val('b_pos');
+
+        let consigneeHTML = '<span class="f-9">Consignee (Ship to)</span><br>';
+        if (bName) consigneeHTML += `<span class="f-113b">${bName}</span><br>`;
+        if (bAdd1) consigneeHTML += `<span class="f-91">${bAdd1}</span><br>`;
+        if (bAdd2) consigneeHTML += `<span class="f-91">${bAdd2}</span><br>`;
+        if (bGst) consigneeHTML += `<span class="f-10">GSTIN/UIN : ${bGst}</span><br>`;
+        if (bPan) consigneeHTML += `<span class="f-9">PAN/IT No : ${bPan}</span><br>`;
+        if (bState) consigneeHTML += `<span class="f-10">State Name : ${bState}</span><br>`;
+        setClassHTML('p_consignee_block', consigneeHTML);
+
+        let buyerHTML = '<span class="f-9">Buyer (Bill to)</span><br>';
+        if (bName) buyerHTML += `<span class="f-12b">${bName}</span><br>`;
+        if (bAdd1) buyerHTML += `<span class="f-86">${bAdd1}</span><br>`;
+        if (bAdd2) buyerHTML += `<span class="f-86">${bAdd2}</span><br>`;
+        if (bGst) buyerHTML += `<span class="f-10">GSTIN/UIN : ${bGst}</span><br>`;
+        if (bPan) buyerHTML += `<span class="f-10">PAN/IT No : ${bPan}</span><br>`;
+        if (bState) buyerHTML += `<span class="f-10">State Name : ${bState}</span><br>`;
+        if (bPos) buyerHTML += `<span class="f-10">Place of Supply : ${bPos}</span><br>`;
+        setClassHTML('p_buyer_block', buyerHTML);
+
+        setClassText('p_sign_name', sName);
+
+        // Company's PAN line (only shown if filled)
+        let sPan = val('s_pan');
+        setClassHTML('p_s_pan_line', sPan ? `<span class="f-9">Company's PAN : <span class="f-9b">${sPan}</span></span><br>` : '');
+
+        // Bank details — labels 9pt regular, branch/IFSC value 8.4pt bold (matches PDF)
+        let bankName = val('s_bank_name'), bankAcc = val('s_bank_acc'),
+            bankIfsc = val('s_bank_ifsc'), bankBranch = val('s_bank_branch');
+        let bankHTML = '';
+        if (bankName) bankHTML += `<span class="f-9">Bank Name : <span class="f-78b">${bankName}</span></span><br>`;
+        if (bankAcc) bankHTML += `<span class="f-9">A/c No. : <span class="f-9b">${bankAcc}</span></span><br>`;
+        if (bankBranch || bankIfsc) {
+            let branchVal = [bankBranch, bankIfsc].filter(Boolean).join(' & ');
+            bankHTML += `<span class="f-9">Branch & IFS Code : <span class="f-84b">${branchVal}</span></span><br>`;
+        }
+        setClassHTML('p_s_bank', bankHTML);
+
+        // Transport
+        setClassText('p_eway', document.getElementById('t_eway').value);
+        setClassText('p_doc', document.getElementById('t_doc').value);
+        setClassText('p_thru', document.getElementById('t_thru').value);
+        setClassText('p_dest', document.getElementById('t_dest').value);
+        setClassText('p_veh', document.getElementById('t_veh').value);
+        setClassText('p_pay', document.getElementById('t_pay').value);
+
+        let gstLoc = document.getElementById('t_gstloc').value;
+
+        // ---- Items & Math (computed once, then stamped into every copy) ----
+        let totalQty = 0;
+        let subtotal = 0;
+        let count = 1;
+        let hsnGroups = {};   // keyed by "HSN|type|rate" so different tax slabs/types are shown separately
+        let itemsHTML = '';
+        let totalCgst = 0, totalSgst = 0, totalIgst = 0;
+
+        let names = document.querySelectorAll('.i_name');
+        let specs = document.querySelectorAll('.i_spec');
+        let hsns = document.querySelectorAll('.i_hsn');
+        let qtys = document.querySelectorAll('.i_qty');
+        let rates = document.querySelectorAll('.i_rate');
+        let units = document.querySelectorAll('.i_unit');
+        let taxes = document.querySelectorAll('.i_tax');
+
+        for (let i = 0; i < names.length; i++) {
+            let q = parseFloat(qtys[i].value) || 0;
+            let r = parseFloat(rates[i].value) || 0;
+            let taxInfo = parseTaxValue(taxes[i].value);
+            let amt = q * r;
+            let itemTax = amt * (taxInfo.rate / 100);
+            let itemCgst = 0, itemSgst = 0, itemIgst = 0;
+            if (taxInfo.type === 'IGST') {
+                itemIgst = itemTax;
+            } else {
+                itemCgst = itemTax / 2;
+                itemSgst = itemTax / 2;
+            }
+            totalQty += q;
+            subtotal += amt;
+            totalCgst += itemCgst;
+            totalSgst += itemSgst;
+            totalIgst += itemIgst;
+
+            let hsn = hsns[i].value;
+            let key = hsn + '|' + taxInfo.type + '|' + taxInfo.rate;
+            if (!hsnGroups[key]) hsnGroups[key] = { hsn: hsn, type: taxInfo.type, rate: taxInfo.rate, taxable: 0 };
+            hsnGroups[key].taxable += amt;
+
+            itemsHTML += `
+                <tr>
+                    <td class="col-sl f-10">${count}</td>
+                    <td class="col-desc"><span class="f-10b">${names[i].value}</span><br><span class="item-spec">${specs[i].value}</span></td>
+                    <td class="col-hsn f-9">${hsn}</td>
+                    <td class="col-qty f-79b">${q.toLocaleString('en-IN', {minimumFractionDigits: 3})} ${units[i].value}</td>
+                    <td class="col-rate f-9">${r.toFixed(2)}</td>
+                    <td class="col-unit f-85">${units[i].value}</td>
+                    <td class="col-amount f-10b">${amt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                </tr>
+            `;
+            count++;
+        }
+        setClassHTML('p_items_body', itemsHTML);
+
+        let totalTax = totalCgst + totalSgst + totalIgst;
+        let exactTotal = subtotal + totalTax;
+        let roundedTotal = Math.round(exactTotal);
+        let roundOff = roundedTotal - exactTotal;
+
+        // Summary rows: subtotal amount only (no label), then CGST/SGST/IGST bold-italic with location, Round Off
+        let summaryLabels = [''];
+        let summaryAmounts = [subtotal.toLocaleString('en-IN', {minimumFractionDigits: 2})];
+        const gstLocLabel = gstLoc ? ` (${gstLoc.toUpperCase()})` : '';
+        if (totalCgst > 0 || totalSgst > 0) {
+            summaryLabels.push(`<span class="f-10bi">C GST${gstLocLabel}</span>`, `<span class="f-10bi">S GST${gstLocLabel}</span>`);
+            summaryAmounts.push(
+                totalCgst.toLocaleString('en-IN', {minimumFractionDigits: 2}),
+                totalSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})
+            );
+        }
+        if (totalIgst > 0) {
+            summaryLabels.push(`<span class="f-10bi">I GST${gstLocLabel}</span>`);
+            summaryAmounts.push(totalIgst.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        }
+        summaryLabels.push('<span class="f-10bi">Round Off (+/-)</span>');
+        summaryAmounts.push(roundOff.toFixed(2));
+
+        setClassHTML('p_gst_labels', summaryLabels.join('<br>'));
+        setClassHTML('p_gst_amounts', summaryAmounts.map((a, i) =>
+            i === 0 ? `<span class="f-10">${a}</span>` : `<span class="f-10b">${a}</span>`
+        ).join('<br>'));
+
+        setClassText('p_total_qty', totalQty.toLocaleString('en-IN', {minimumFractionDigits: 3}) + (units.length ? ' ' + units[0].value : ''));
+        setClassText('p_grand_total', "₹ " + roundedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+        setClassText('p_words', amountToWordsWithPaise(roundedTotal, 'INR'));
+
+        // HSN + rate + type-wise tax table. GST rows split into CGST/SGST columns;
+        // IGST rows populate only the IGST columns. Whichever tax type (GST vs IGST)
+        // isn't used anywhere on the invoice has its columns dropped entirely,
+        // rather than just left blank.
+        let totTaxable = 0, totCgst = 0, totSgst = 0, totIgst = 0;
+        const groupList = Object.values(hsnGroups);
+        const hasGst = groupList.some(g => g.type !== 'IGST');
+        const hasIgst = groupList.some(g => g.type === 'IGST');
+        // If there are no items at all yet, default to showing the GST columns.
+        const showGst = hasGst || (!hasGst && !hasIgst);
+        const showIgst = hasIgst;
+
+        let rowsHTML = '';
+        groupList.forEach(group => {
+            let taxable = group.taxable;
+            let rowTax = 0;
+            let cells = `<td class="f-9 col-hsn">${group.hsn}</td><td class="f-9 col-num">${taxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+
+            if (group.type === 'IGST') {
+                let igstAmt = taxable * (group.rate / 100);
+                totIgst += igstAmt;
+                rowTax = igstAmt;
+                if (showGst) cells += `<td class="f-9 col-rate"></td><td class="f-9 col-num"></td><td class="f-9 col-rate"></td><td class="f-9 col-num"></td>`;
+                if (showIgst) cells += `<td class="f-9 col-rate col-igst-rate">${group.rate}%</td><td class="f-9 col-num col-igst-amt">${igstAmt.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            } else {
+                let halfRate = group.rate / 2;
+                let c = taxable * (halfRate / 100);
+                let s = taxable * (halfRate / 100);
+                totCgst += c; totSgst += s;
+                rowTax = c + s;
+                if (showGst) cells += `<td class="f-9 col-rate col-cgst-rate">${halfRate}%</td><td class="f-9 col-num col-cgst-amt">${c.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="f-9 col-rate col-sgst-rate">${halfRate}%</td><td class="f-9 col-num col-sgst-amt">${s.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+                if (showIgst) cells += `<td class="f-9 col-rate"></td><td class="f-9 col-num"></td>`;
+            }
+            totTaxable += taxable;
+
+            cells += `<td class="f-9 col-num col-total-tax">${rowTax.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+            rowsHTML += `<tr>${cells}</tr>`;
+        });
+
+        let totalTaxAll = totCgst + totSgst + totIgst;
+
+        // Build the header row(s) — HSN/SAC gets the wider slot while the GST columns stay compact
+        let headRow1 = `<th rowspan="2" class="f-9 col-hsn">HSN/SAC</th><th rowspan="2" class="f-9 col-taxable col-num">Taxable Value</th>`;
+        if (showGst) headRow1 += `<th colspan="2" class="f-9 text-center">CGST</th><th colspan="2" class="f-9 text-center">SGST/UTGST</th>`;
+        if (showIgst) headRow1 += `<th colspan="2" class="f-9 text-center">IGST</th>`;
+        headRow1 += `<th rowspan="2" class="f-9 col-total-tax">Total Tax Amount</th>`;
+
+        let headRow2 = '';
+        if (showGst) headRow2 += `<th class="f-9 col-rate col-cgst-rate">Rate</th><th class="f-9 col-num col-cgst-amt">Amount</th><th class="f-9 col-rate col-sgst-rate">Rate</th><th class="f-9 col-num col-sgst-amt">Amount</th>`;
+        if (showIgst) headRow2 += `<th class="f-9 col-rate col-igst-rate">Rate</th><th class="f-9 col-num col-igst-amt">Amount</th>`;
+
+        // Footer totals — only the HSN label is aligned left, while amounts stay right aligned
+        let footerCells = `<td class="f-9b col-hsn">Total</td><td class="f-9b col-taxable col-num">${totTaxable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showGst) footerCells += `<td class="col-rate col-cgst-rate"></td><td class="f-9b col-num col-cgst-amt">${totCgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td class="col-rate col-sgst-rate"></td><td class="f-9b col-num col-sgst-amt">${totSgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        if (showIgst) footerCells += `<td class="col-rate col-igst-rate"></td><td class="f-9b col-num col-igst-amt">${totIgst.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+        footerCells += `<td class="f-9b col-num col-total-tax">${totalTaxAll.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
+
+        const taxTableHTML = `
+            <table class="stack-table tax-table" style="border: 1px solid #000; border-top: none; width:100%;">
+                <thead>
+                    <tr>${headRow1}</tr>
+                    <tr>${headRow2}</tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+                <tfoot>
+                    <tr>${footerCells}</tr>
+                </tfoot>
+            </table>
+        `;
+        setClassHTML('p_tax_table_container', taxTableHTML);
+
+        setClassText('p_tax_words', amountToWordsWithPaise(totalTaxAll, 'INR'));
+
+        // QR code — one rendered instance per copy (each needs its own DOM node)
+        let qrPayload = `IRN:${document.getElementById('f_irn').value}|AckNo:${document.getElementById('f_ackNo').value}|InvNo:${document.getElementById('f_invNo').value}|Date:${document.getElementById('f_date').value}|Total:${roundedTotal}`;
+        document.querySelectorAll('.p_qr').forEach(el => {
+            el.innerHTML = '';
+            new QRCode(el, { text: qrPayload, width: 105, height: 105, correctLevel: QRCode.CorrectLevel.M });
+        });
+
+        setTimeout(() => window.print(), 300);
+    }
+</script>
+</body>
+</html>
